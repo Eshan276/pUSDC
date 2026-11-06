@@ -23,6 +23,10 @@ const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 24);
 onScroll();
 window.addEventListener("scroll", onScroll, { passive: true });
 
+// Blue panel: its text eases in once the panel is mostly on screen
+const introEl = document.querySelector(".intro");
+if (introEl) new IntersectionObserver(([e]) => e.isIntersecting && introEl.classList.add("in"), { threshold: 0.3 }).observe(introEl);
+
 // Reveal on scroll, with a small stagger for siblings
 const revealIO = new IntersectionObserver(
   (entries) => {

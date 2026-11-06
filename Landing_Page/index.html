@@ -30,20 +30,16 @@
         <ul class="stats" aria-label="At a glance">
           <li><span class="slash" aria-hidden="true">//</span><i class="dot dot-blue" aria-hidden="true"></i>Network: <b>Base Sepolia</b></li>
           <li><span class="slash" aria-hidden="true">//</span><i class="dot dot-amber" aria-hidden="true"></i>Hold: <b>1&ndash;30 days</b></li>
-          <li><span class="slash" aria-hidden="true">//</span><i class="dot dot-ink" aria-hidden="true"></i>Fees: <b>none</b></li>
+          <li><span class="slash" aria-hidden="true">//</span><i class="dot dot-ring" aria-hidden="true"></i>Fees: <b>none</b></li>
         </ul>
         <div class="nav-right">
           <ul class="nav-links">
             <li><a href="#how">How it works</a></li>
             <li><a href="#controls">Controls</a></li>
             <li><a href="#try">Try it</a></li>
+            <li><a href="https://github.com/Eshan276/pUSDC" target="_blank" rel="noopener">GitHub</a></li>
           </ul>
-          <div class="nav-actions">
-            <a class="icon-link" href="https://github.com/Eshan276/pUSDC" aria-label="Source code on GitHub" target="_blank" rel="noopener">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#gh" /></svg>
-            </a>
-            <a class="btn-launch" href="#try" data-app-link>Launch app</a>
-          </div>
+          <a class="btn-launch" href="#try" data-app-link>Launch App</a>
         </div>
       </nav>
     </header>
@@ -51,69 +47,43 @@
     <main id="main">
       <!-- ───────────── Hero ───────────── -->
       <section class="hero" id="top">
-        <div class="hero-media" aria-hidden="true">
-          <canvas class="hero-ascii"></canvas>
-          <div class="hero-fade"></div>
-        </div>
+        <div class="ascii" aria-hidden="true"></div>
 
         <div class="hero-inner">
-          <p class="eyebrow reveal"><span class="pulse" aria-hidden="true"></span>Live on Base Sepolia</p>
-          <h1 class="display reveal">
-            Your dollars move instantly,<br />
-            until someone tries to <em class="accent">take them all at once</em>
+          <h1 class="display">
+            <span class="ln">Your dollars move</span>
+            <span class="ln">instantly, until someone</span>
+            <span class="ln">tries to <em class="accent">take it all</em></span>
           </h1>
-          <p class="lede reveal">
-            Protected USDC wraps USDC 1:1 and adds the safety net crypto never had: a delay you control, a backup wallet that
-            can cancel, and an emergency button.
-          </p>
-          <div class="cta-row reveal">
-            <a class="btn btn-accent btn-lg" href="#try" data-app-link><span class="sq" aria-hidden="true"></span>Protect your USDC</a>
-            <a class="btn btn-ghost btn-lg" href="#film"><span class="tri" aria-hidden="true"></span>Watch the film</a>
-          </div>
+          <a class="hero-cta" href="#try" data-app-link>Launch App</a>
+          <p class="hero-note">Testnet only &middot; unaudited</p>
         </div>
 
-        <div class="facts reveal" aria-label="Key facts">
-          <div class="marquee">
-            <ul class="marquee-track">
-              <li>1:1 USDC wrapper</li>
-              <li>Built on Base</li>
-              <li>Works with Uniswap</li>
-              <li>ERC-20 + Permit</li>
-              <li>Incoming always instant</li>
-              <li>Open source · MIT</li>
-              <li>ETHGlobal Mumbai 2026</li>
-            </ul>
-            <ul class="marquee-track" aria-hidden="true">
-              <li>1:1 USDC wrapper</li>
-              <li>Built on Base</li>
-              <li>Works with Uniswap</li>
-              <li>ERC-20 + Permit</li>
-              <li>Incoming always instant</li>
-              <li>Open source · MIT</li>
-              <li>ETHGlobal Mumbai 2026</li>
-            </ul>
-          </div>
-          <a class="text-link" href="https://github.com/Eshan276/pUSDC/tree/main/src" target="_blank" rel="noopener"
-            ><span class="sq sq-dim" aria-hidden="true"></span>Read the contracts</a
-          >
+        <div class="strip" aria-label="Built with">
+          <p class="strip-label">Building<br />with</p>
+          <ul class="strip-items">
+            <li class="w-base">Base</li>
+            <li class="w-uni">uniswap</li>
+            <li class="w-oz">OPENZEPPELIN</li>
+            <li class="w-box"><span>USDC</span></li>
+            <li class="w-found">Foundry</li>
+            <li class="w-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#pixels" /></svg></li>
+          </ul>
         </div>
       </section>
 
       <!-- ───────────── Introducing (full-bleed blue panel) ───────────── -->
       <section class="intro" aria-labelledby="intro-title">
-        <div class="intro-inner">
-          <p class="intro-kicker reveal"><span class="sq" aria-hidden="true"></span>Introducing</p>
-          <h2 class="intro-title reveal" id="intro-title">Protected USDC</h2>
-          <p class="intro-sub reveal">
-            pUSDC is USDC with the safety net built into the token itself. Small payments stay instant. Bigger ones wait out
-            a delay you choose, and a backup wallet you control can cancel them before they land.
-          </p>
-          <ul class="intro-points reveal" aria-label="Highlights">
-            <li><b>1:1</b><span>wraps USDC</span></li>
-            <li><b>0</b><span>fees, no admin keys</span></li>
-            <li><b>24/7</b><span>incoming is always instant</span></li>
-          </ul>
+        <div class="intro-stage">
+          <div class="rings" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="token" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#mark" /></svg></div>
         </div>
+        <h2 class="intro-title" id="intro-title">Introducing Protected USDC</h2>
+        <p class="intro-sub">
+          Protected USDC (pUSDC) is USDC wrapped 1:1, with a delay you control and a backup wallet that can cancel large
+          transfers before they land.
+        </p>
+        <a class="intro-cta" href="#try" data-app-link>Get pUSDC</a>
       </section>
 
       <!-- ───────────── Film ───────────── -->
@@ -388,6 +358,9 @@
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
       <defs>
         <!-- Brand mark: a "p" carved from a coin, with a shield notch in the bowl -->
+        <symbol id="pixels" viewBox="0 0 40 40">
+          <g fill="currentColor"><rect x="4" y="4" width="8" height="8"/><rect x="12" y="12" width="8" height="8"/><rect x="20" y="4" width="8" height="8"/><rect x="28" y="12" width="8" height="8"/><rect x="4" y="20" width="8" height="8"/><rect x="20" y="20" width="8" height="8"/><rect x="12" y="28" width="8" height="8"/><rect x="28" y="28" width="8" height="8"/></g>
+        </symbol>
         <symbol id="mark" viewBox="0 0 40 40">
           <mask id="mark-cut">
             <rect width="40" height="40" fill="#fff" />
