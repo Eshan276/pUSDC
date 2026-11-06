@@ -56,6 +56,34 @@ Free public RPCs only keep about 25 minutes of mainnet history. If you pause on 
 longer fetch state ("historical state is not available"). Use an archive RPC (a free Alchemy or Infura key works), or
 restart anvil and rerun.
 
+## Frontend (`frontend/`)
+
+A static web app for the Base Sepolia demo deployment: no backend, no trackers, browser-extension wallets only. It builds to plain
+files, so it can be hosted on IPFS + ENS.
+
+```sh
+cd frontend
+npm install
+npm run dev          # http://localhost:5173
+npm run build        # static site in frontend/dist
+npm run abi          # regenerate src/abi.ts after `forge build`
+```
+
+What it does:
+- explains the idea in plain words before you connect,
+- has a 3-step protection setup (backup wallet, presets, plain-language review),
+- shows whether each send or withdrawal will be instant or scheduled before you confirm,
+- shows countdowns on scheduled transfers,
+- labels each settings change as "applies instantly" or "applies on <date>",
+- has a hold-to-confirm emergency button,
+- has an "I'm a backup" view for stopping transfers and rescuing someone's funds,
+- offers a test-USDC faucet.
+
+**Dev-only test mode**, for clicking through without MetaMask: run anvil as a fork of Base Sepolia with `--auto-impersonate`, start the app with
+`VITE_RPC_URL=http://127.0.0.1:8545 npm run dev`, then open `/?as=0xANY_ADDRESS`. Production builds strip it out.
+
+Design tokens and voice are documented in `brand.md`.
+
 ## License
 
 MIT
