@@ -24,7 +24,8 @@ BACKUP_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
 BACKUP=$(cast wallet address --private-key $BACKUP_KEY)
 ATTACKER=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC   # attacker stole ALICE_KEY
 
-say()   { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
+say()   { cast chain-id --rpc-url "$RPC" >/dev/null 2>&1 || { echo "   !! lost connection to anvil at $RPC"; fork_hint; exit 1; }
+          printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 note()  { printf '   %s\n' "$*"; }
 pause() { [[ "${DEMO_AUTO:-}" == 1 ]] || read -rp $'\n   [Enter] to continue... '; }
 usd()   { awk -v v="$1" 'BEGIN{printf "%\047.2f", v/1e6}'; }
@@ -34,8 +35,22 @@ ubal()  { cast call "$USDC" 'balanceOf(address)(uint256)' "$1" --rpc-url "$RPC" 
 show()  { note "alice:    $(usd "$(pbal $ALICE)") pUSDC   $(usd "$(ubal $ALICE)") USDC"
           note "backup:   $(usd "$(pbal $BACKUP)") pUSDC   $(usd "$(ubal $BACKUP)") USDC"
           note "attacker: $(usd "$(pbal $ATTACKER)") pUSDC"; }
-send()  { local st; st=$(cast send --rpc-url "$RPC" --gas-limit 5000000 --json "$@" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
-          [[ "$st" == "0x1" ]] || { echo "   !! transaction failed on-chain (status $st): $*"; exit 1; }; }
+send()  { local out st
+          local err; err=$(mktemp)
+          out=$(cast send --rpc-url "$RPC" --gas-limit 5000000 --json "$@" 2>"$err") || true
+          st=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("status",""))' "$out" 2>/dev/null || true)
+          [[ "$st" == "0x1" ]] && { rm -f "$err"; return 0; }
+          echo "   !! transaction failed: $*"; echo "   $out $(cat "$err")" | head -c 600; echo; rm -f "$err"
+          fork_hint; exit 1; }
+fork_hint() { cat <<'HINT'
+
+   If the error says "historical state ... is not available" or "missing trie node":
+   the fork has gone stale. Free public RPCs only keep ~25 minutes of mainnet history,
+   and anvil keeps fetching state from the block it forked at.
+   Fix: restart anvil and rerun, ideally with an archive RPC (a free Alchemy/Infura key works),
+   or run without pauses: DEMO_AUTO=1 ./script/demo.sh
+HINT
+}
 # Run a tx that is expected to fail and print the decoded reason.
 expect_fail() {
   local out
@@ -44,6 +59,7 @@ expect_fail() {
   local decoded; decoded=$(grep -oE '[A-Z][A-Za-z]+\([^()]*\)$' <<<"$out" | tail -1 | sed -E 's/ \[[^]]*\]//g' || true)
   if [[ -n "$reason" ]]; then note "REVERTED: \"$reason\" (Uniswap's wrapper around our error)"
   elif [[ -n "$decoded" ]]; then note "REVERTED: $decoded"
+  elif grep -qiE 'historical state|missing trie node|failed to get|failed to retrieve|Connection refused|timed out' <<<"$out"; then echo "   !! RPC error, not a revert: $(grep -m1 -iE 'error' <<<"$out")"; fork_hint; exit 1
   else note "REVERTED: $(grep -m1 -iE 'revert|error' <<<"$out")"; fi
 }
 warp()  { cast rpc evm_increaseTime "$1" --rpc-url "$RPC" >/dev/null; cast rpc evm_mine --rpc-url "$RPC" >/dev/null; }

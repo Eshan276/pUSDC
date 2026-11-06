@@ -43,6 +43,10 @@ anvil --fork-url "$MAINNET_RPC_URL" --auto-impersonate
 ./script/demo.sh
 ```
 
+Free public RPCs only keep about 25 minutes of mainnet history. If you pause on a step for longer, the fork can no
+longer fetch state ("historical state is not available"). Use an archive RPC (a free Alchemy or Infura key works), or
+restart anvil and rerun.
+
 ## License
 
 MIT
