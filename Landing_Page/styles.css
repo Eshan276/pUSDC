@@ -398,15 +398,15 @@ a.text-link:hover {
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 0 oklch(0.86 0.145 120 / 0.6);
+  box-shadow: 0 0 0 0 oklch(0.62 0.15 254 / 0.55);
   animation: pulse 2.4s infinite;
 }
 @keyframes pulse {
   70% {
-    box-shadow: 0 0 0 9px oklch(0.86 0.145 120 / 0);
+    box-shadow: 0 0 0 9px oklch(0.62 0.15 254 / 0);
   }
   100% {
-    box-shadow: 0 0 0 0 oklch(0.86 0.145 120 / 0);
+    box-shadow: 0 0 0 0 oklch(0.62 0.15 254 / 0);
   }
 }
 .display {
@@ -1340,3 +1340,62 @@ input[type="range"]:active::-webkit-slider-thumb {
     transform: none;
   }
 }
+
+/* ───────── Hero, light variant: left-aligned copy, stepped ASCII shield on the right ───────── */
+.hero {
+  --hero-bg: oklch(0.968 0.006 255);
+  background: var(--hero-bg);
+  color: var(--cream-ink);
+}
+.hero-media {
+  inset: 0 0 0 auto;
+  width: min(46%, 640px);
+  background: transparent;
+}
+.hero-ascii { opacity: 1; }
+.hero-fade { display: none; }
+.hero-inner {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  text-align: left;
+}
+.hero .eyebrow {
+  border-color: oklch(0.22 0.02 255 / 0.14);
+  background: oklch(1 0 0 / 0.7);
+  color: var(--cream-muted);
+  backdrop-filter: none;
+}
+.hero .display {
+  max-width: 10.6em;
+  font-size: clamp(36px, 4.4vw, 62px);
+  color: var(--cream-ink);
+}
+.hero em.accent {
+  padding: 0 0.16em;
+  background: var(--accent);
+  color: #fff;
+  font-style: italic;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.hero .lede {
+  max-width: 520px;
+  margin-left: 0;
+  color: var(--cream-muted);
+  text-shadow: none;
+}
+.hero .cta-row { justify-content: flex-start; }
+.hero .btn-ghost {
+  color: var(--cream-ink);
+  border-color: oklch(0.22 0.02 255 / 0.28);
+  background: transparent;
+}
+.hero .btn-ghost:hover { background: oklch(0.22 0.02 255 / 0.06); border-color: oklch(0.22 0.02 255 / 0.5); }
+.hero .facts { justify-items: stretch; }
+.hero .marquee { width: 100%; }
+.hero .marquee-track li { color: oklch(0.3 0.02 255 / 0.7); }
+@media (max-width: 900px) {
+  .hero-media { width: 100%; opacity: 0.16; }
+}
+.nav { background: oklch(0.14 0.022 255 / 0.94); border-color: oklch(1 0 0 / 0.1); }
