@@ -3,9 +3,10 @@ import { ArrowLeft, ChevronRight, ExternalLink, History, KeyRound, Lock, LogOut,
 import type { Address } from "viem";
 import { isAddress } from "viem";
 import { pusdcAbi } from "@abi";
-import { Button, Card, Field, HoldButton, Notice, inputClass, useNow } from "@ui/ui";
+import { Button, Card, Field, HoldButton, Notice, inputClass } from "@ui/ui";
 import { PUSDC, EXPLORER, DECIMALS } from "../shared/chain";
-import { BOUNDS, Param, daysError } from "../shared/presets";
+import { Param, durError, unitFor, type Bounds } from "../shared/presets";
+import { useBounds, useChainNow } from "./useWallet";
 import { fmtAmount, fmtDate, fmtDuration, parseAmount, shortAddr } from "../shared/format";
 import type { Protection } from "../shared/read";
 import type { WalletState } from "../shared/messages";
@@ -15,7 +16,6 @@ import { useSend, type Activity } from "./useSend";
 
 type Tx = ReturnType<typeof useSend>;
 type Page = "menu" | "protection" | "security" | "activity" | "emergency";
-const DAY = 86400;
 
 export function MoreTab(p: { data: Protection | undefined; me: Address; tx: Tx; state: WalletState; refresh: () => void; initialPage?: Page }) {
   const [page, setPage] = useState<Page>(p.initialPage ?? "menu");
@@ -77,16 +77,19 @@ function Emergency({ data, me, tx }: { data: Protection | undefined; me: Address
 
 /* ───────── protection settings ───────── */
 
-type ParamRow = { id: number; title: string; unit: string; help: string; b?: { min: number; max: number } };
+type ParamRow = { id: number; title: string; help: string; key?: "hold" | "off" | "lock" };
 const PARAMS: ParamRow[] = [
-  { id: Param.DailyLimit, title: "Daily limit", unit: "pUSDC", help: "How much can leave instantly each day. Lower is stricter." },
-  { id: Param.HoldWindow, title: "Waiting time for big transfers", unit: "days", help: "Longer is stricter.", b: BOUNDS.hold },
-  { id: Param.OffDelay, title: "Delay before loosening", unit: "days", help: "Longer is stricter.", b: BOUNDS.offDelay },
-  { id: Param.LockDuration, title: "Safety lock after an emergency", unit: "days", help: "Longer is stricter.", b: BOUNDS.lock },
+  { id: Param.DailyLimit, title: "Daily limit", help: "How much can leave instantly each day. Lower is stricter." },
+  { id: Param.HoldWindow, title: "Waiting time for big transfers", help: "Longer is stricter.", key: "hold" },
+  { id: Param.OffDelay, title: "Delay before loosening", help: "Longer is stricter.", key: "off" },
+  { id: Param.LockDuration, title: "Safety lock after an emergency", help: "Longer is stricter.", key: "lock" },
 ];
 
 function ProtectionSettings({ data, tx, me }: { data: Protection | undefined; tx: Tx; me: Address }) {
-  const now = useNow();
+  const now = useChainNow();
+  const bounds: Bounds = useBounds();
+  const unit = unitFor(bounds);
+  const rangeOf = (i: number) => bounds[PARAMS[i].key!];
   const [edit, setEdit] = useState<number | null>(null);
   const [val, setVal] = useState("");
   const [bk, setBk] = useState("");
@@ -98,7 +101,7 @@ function ProtectionSettings({ data, tx, me }: { data: Protection | undefined; tx
   const show = (i: number) => (i === 0 ? `${fmtAmount(data.dailyLimit)} pUSDC` : fmtDuration(Number(current[i])));
   const parsed = (i: number): bigint | undefined => {
     if (i === 0) return val.trim() === "0" ? 0n : parseAmount(val);
-    return daysError(val, PARAMS[i].b!) ? undefined : BigInt(Number(val) * DAY);
+    return durError(val, rangeOf(i), unit) ? undefined : BigInt(Number(val) * unit.secs);
   };
   // Mirrors the contract's _isIncrease: stricter changes apply instantly, looser ones wait.
   const stricter = (i: number, v: bigint) => (i === 0 ? v <= current[0] : v >= current[i]);
@@ -119,7 +122,7 @@ function ProtectionSettings({ data, tx, me }: { data: Protection | undefined; tx
             {pend && <Notice tone="warning">Change to {i === 0 ? fmtAmount(pend.value) : fmtDuration(Number(pend.value))} applies {fmtDate(pend.effectiveAt)}.</Notice>}
             {edit === i ? (
               <>
-                <Field label={`New value (${p.unit})`} htmlFor={`p${i}`} error={val && v === undefined ? (i === 0 ? "Enter an amount." : daysError(val, p.b!)) : undefined}>
+                <Field label={`New value (${i === 0 ? "pUSDC" : unit.label})`} htmlFor={`p${i}`} error={val && v === undefined ? (i === 0 ? "Enter an amount." : durError(val, rangeOf(i), unit)) : undefined}>
                   <input id={`p${i}`} autoFocus className={inputClass} inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} />
                 </Field>
                 {v !== undefined && (stricter(i, v)
@@ -131,7 +134,7 @@ function ProtectionSettings({ data, tx, me }: { data: Protection | undefined; tx
                     onClick={async () => { if (await tx.run(`p${i}`, { address: PUSDC, abi: pusdcAbi, functionName: "setParam", args: [p.id, v!] }, stricter(i, v!) ? "Updated" : "Change scheduled")) setEdit(null); }}>Save</Button>
                 </div>
               </>
-            ) : <Button variant="secondary" onClick={() => { setEdit(i); setVal(i === 0 ? String(Number(current[0]) / 10 ** DECIMALS) : String(Number(current[i]) / DAY)); }}>Change</Button>}
+            ) : <Button variant="secondary" onClick={() => { setEdit(i); setVal(i === 0 ? String(Number(current[0]) / 10 ** DECIMALS) : String(Number(current[i]) / unit.secs)); }}>Change</Button>}
           </Card>
         );
       })}

@@ -2,13 +2,13 @@ import { useState } from "react";
 import { Clock, EyeOff, ShieldAlert } from "lucide-react";
 import { isAddress, type Address } from "viem";
 import { pusdcAbi } from "@abi";
-import { Button, Card, Field, HoldButton, Notice, Skeleton, inputClass, useNow } from "@ui/ui";
+import { Button, Card, Field, HoldButton, Notice, Skeleton, inputClass } from "@ui/ui";
 import { PUSDC } from "../shared/chain";
 import { fmtAmount, fmtCountdown, fmtDate, shortAddr } from "../shared/format";
 import type { Protection } from "../shared/read";
 import type { WalletState } from "../shared/messages";
 import { call } from "./api";
-import { useProtection } from "./useWallet";
+import { useChainNow, useProtection } from "./useWallet";
 import { useSend } from "./useSend";
 
 type Tx = ReturnType<typeof useSend>;
@@ -16,7 +16,7 @@ const PARAM_NAMES = ["daily limit", "waiting time", "turn-off delay", "lock time
 
 /** Everything pending on a wallet: scheduled transfers and queued weakening of protection. `canStop` = viewer may cancel. */
 export function PendingView({ data, tx, viewer }: { data: Protection; tx: Tx; viewer: Address }) {
-  const now = useNow();
+  const now = useChainNow();
   const isOwner = data.address.toLowerCase() === viewer.toLowerCase();
   const c = (functionName: string, args: readonly unknown[] = []) => ({ address: PUSDC, abi: pusdcAbi, functionName, args }) as const;
   const none = !data.pending.length && !data.flagOffAt && !data.pendingBackup && !data.pendingChanges.some(Boolean);

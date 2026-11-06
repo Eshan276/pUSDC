@@ -4,7 +4,8 @@ import { isAddress, type Address } from "viem";
 import { pusdcAbi, usdcAbi } from "@abi";
 import { Button, Card, Field, Notice, inputClass } from "@ui/ui";
 import { PUSDC, USDC } from "../shared/chain";
-import { BOUNDS, PRESETS, daysError, toSeconds, type Settings } from "../shared/presets";
+import { customStart, durError, presetsFor, toSeconds, unitFor, type Settings } from "../shared/presets";
+import { useBounds } from "./useWallet";
 import { fmtAmount, fmtDuration, parseAmount } from "../shared/format";
 import type { Protection } from "../shared/read";
 import type { WalletState } from "../shared/messages";
@@ -66,15 +67,22 @@ export function SetupWizard({ me, tx, onClose, noEth }: { me: Address; tx: Tx; o
   const [step, setStep] = useState(0);
   const [backup, setBackup] = useState("");
   const [owns, setOwns] = useState(false);
-  const [preset, setPreset] = useState("everyday");
-  const [custom, setCustom] = useState<Settings>(PRESETS[2].s);
-  const s = preset === "custom" ? custom : PRESETS.find((x) => x.id === preset)!.s;
+  const bounds = useBounds();
+  const unit = unitFor(bounds);
+  const presets = presetsFor(bounds);
+  const [chosen, setPreset] = useState<string>();
+  const preset = chosen && presets.some((x) => x.id === chosen) ? chosen : presets[0].id;
+  const [customEdit, setCustom] = useState<Settings>();
+  const custom = customEdit ?? customStart(bounds);
+  const s = preset === "custom" ? custom : presets.find((x) => x.id === preset)!.s;
+  // Preset times are written in days; convert to the active unit (minutes on the demo token) except the fast preset.
+  const val = (v: string) => (preset === "custom" || preset === "fast" || unit.name === "days" ? v : String((Number(v) * 86400) / unit.secs));
 
   const backupError = !backup ? "Enter your backup wallet's address." : !isAddress(backup) ? "That doesn't look like an address." : backup.toLowerCase() === me.toLowerCase() ? "Your backup has to be a different wallet from this one." : undefined;
-  const settingsError = limitError(s.limit) ?? daysError(s.hold, BOUNDS.hold) ?? daysError(s.off, BOUNDS.offDelay) ?? daysError(s.lock, BOUNDS.lock);
+  const settingsError = limitError(s.limit) ?? durError(val(s.hold), bounds.hold, unit) ?? durError(val(s.off), bounds.off, unit) ?? durError(val(s.lock), bounds.lock, unit);
 
   async function confirm() {
-    const ok = await tx.run("protect", { address: PUSDC, abi: pusdcAbi, functionName: "protect", args: [backup as Address, limitUnits(s.limit), toSeconds(s.hold), toSeconds(s.off), toSeconds(s.lock)] }, "Protection is on");
+    const ok = await tx.run("protect", { address: PUSDC, abi: pusdcAbi, functionName: "protect", args: [backup as Address, limitUnits(s.limit), toSeconds(val(s.hold), unit), toSeconds(val(s.off), unit), toSeconds(val(s.lock), unit)] }, "Protection is on");
     if (ok) onClose();
   }
 
@@ -100,7 +108,7 @@ export function SetupWizard({ me, tx, onClose, noEth }: { me: Address; tx: Tx; o
       {step === 1 && (
         <>
           <div role="radiogroup" aria-label="Protection level" className="space-y-2">
-            {PRESETS.map((x) => (
+            {presets.map((x) => (
               <button key={x.id} role="radio" aria-checked={preset === x.id} onClick={() => setPreset(x.id)}
                 className={`w-full rounded-2xl border p-3 text-left ${preset === x.id ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}>
                 <span className="flex items-center gap-1.5 font-semibold">{x.title}{preset === x.id && <Check className="size-4 text-primary" aria-hidden />}</span>
@@ -111,9 +119,9 @@ export function SetupWizard({ me, tx, onClose, noEth }: { me: Address; tx: Tx; o
           {preset === "custom" && (
             <div className="grid grid-cols-2 gap-3">
               <Field label="Daily limit (pUSDC)" htmlFor="c-limit" error={limitError(custom.limit)}><input id="c-limit" className={inputClass} inputMode="decimal" value={custom.limit} onChange={(e) => setCustom({ ...custom, limit: e.target.value })} /></Field>
-              <Field label="Big transfers wait (days)" htmlFor="c-hold" error={daysError(custom.hold, BOUNDS.hold)}><input id="c-hold" className={inputClass} inputMode="numeric" value={custom.hold} onChange={(e) => setCustom({ ...custom, hold: e.target.value })} /></Field>
-              <Field label="Turning off waits (days)" htmlFor="c-off" error={daysError(custom.off, BOUNDS.offDelay)}><input id="c-off" className={inputClass} inputMode="numeric" value={custom.off} onChange={(e) => setCustom({ ...custom, off: e.target.value })} /></Field>
-              <Field label="Safety lock (days)" htmlFor="c-lock" error={daysError(custom.lock, BOUNDS.lock)}><input id="c-lock" className={inputClass} inputMode="numeric" value={custom.lock} onChange={(e) => setCustom({ ...custom, lock: e.target.value })} /></Field>
+              <Field label={`Big transfers wait (${unit.label})`} htmlFor="c-hold" error={durError(custom.hold, bounds.hold, unit)}><input id="c-hold" className={inputClass} inputMode="numeric" value={custom.hold} onChange={(e) => setCustom({ ...custom, hold: e.target.value })} /></Field>
+              <Field label={`Turning off waits (${unit.label})`} htmlFor="c-off" error={durError(custom.off, bounds.off, unit)}><input id="c-off" className={inputClass} inputMode="numeric" value={custom.off} onChange={(e) => setCustom({ ...custom, off: e.target.value })} /></Field>
+              <Field label={`Safety lock (${unit.label})`} htmlFor="c-lock" error={durError(custom.lock, bounds.lock, unit)}><input id="c-lock" className={inputClass} inputMode="numeric" value={custom.lock} onChange={(e) => setCustom({ ...custom, lock: e.target.value })} /></Field>
             </div>
           )}
           <Button className="w-full" disabled={!!settingsError} onClick={() => setStep(2)}>Review <ArrowRight className="size-4" aria-hidden /></Button>
@@ -124,9 +132,9 @@ export function SetupWizard({ me, tx, onClose, noEth }: { me: Address; tx: Tx; o
         <>
           <ul className="space-y-2 rounded-2xl bg-muted p-4 text-sm">
             <li>Up to <b>{fmtAmount(limitUnits(s.limit))} pUSDC a day</b> goes out instantly.</li>
-            <li>Anything bigger waits <b>{fmtDuration(Number(s.hold) * 86400)}</b>. You or your backup can stop it.</li>
-            <li>Loosening protection takes <b>{fmtDuration(Number(s.off) * 86400)}</b> to apply (making it stricter is instant).</li>
-            <li>In an emergency, funds move to <span className="font-mono">{backup.slice(0, 6)}…{backup.slice(-4)}</span> and stay locked for <b>{fmtDuration(Number(s.lock) * 86400)}</b>.</li>
+            <li>Anything bigger waits <b>{fmtDuration(Number(toSeconds(val(s.hold), unit)))}</b>. You or your backup can stop it.</li>
+            <li>Loosening protection takes <b>{fmtDuration(Number(toSeconds(val(s.off), unit)))}</b> to apply (making it stricter is instant).</li>
+            <li>In an emergency, funds move to <span className="font-mono">{backup.slice(0, 6)}…{backup.slice(-4)}</span> and stay locked for <b>{fmtDuration(Number(toSeconds(val(s.lock), unit)))}</b>.</li>
           </ul>
           {noEth && <Notice tone="warning" title="You need a little ETH first.">Turning protection on is a network transaction. Copy your address and paste it into a free <a className="underline" href={FAUCET} target="_blank" rel="noreferrer">Base Sepolia faucet</a>, then come back.</Notice>}
           <Notice tone="success" icon={<ShieldCheck />}>Receiving money is never slowed down.</Notice>

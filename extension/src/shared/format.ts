@@ -18,10 +18,10 @@ export const shortAddr = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}
 export const looksLikeAddress = (s: string) => isAddress(s, { strict: false });
 
 export function fmtDuration(seconds: number): string {
-  const d = Math.round(seconds / DAY);
-  if (seconds >= DAY) return `${d} day${d === 1 ? "" : "s"}`;
-  const h = Math.max(1, Math.round(seconds / 3600));
-  return `${h} hour${h === 1 ? "" : "s"}`;
+  if (seconds >= DAY) { const d = Math.round(seconds / DAY); return `${d} day${d === 1 ? "" : "s"}`; }
+  if (seconds >= 3600) { const h = Math.round(seconds / 3600); return `${h} hour${h === 1 ? "" : "s"}`; }
+  const m = Math.max(1, Math.round(seconds / 60));
+  return `${m} minute${m === 1 ? "" : "s"}`;
 }
 export function fmtCountdown(seconds: number): string {
   if (seconds <= 0) return "now";

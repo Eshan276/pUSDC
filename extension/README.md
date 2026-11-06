@@ -16,9 +16,18 @@ First install opens a full-page welcome flow. Needs `../frontend` (shared UI + g
 - **dApps:** EIP-1193 + EIP-6963 provider; connect, `eth_sendTransaction`, `personal_sign`, typed data v4; rejections return 4001.
 - **Keys:** seed encrypted with AES-GCM; data key wrapped under the password (PBKDF2-SHA256, 600k) and the optional PIN. Decrypted keys live only in `chrome.storage.session`.
 
+## Minute-level demo token
+The real token enforces day-level delays. For live demos there is a testnet-only variant (`src/demo/DemoFastProtectedWrapper.sol`: 1-minute minimums, 10-minute daily window). The wallet reads the allowed ranges from the contract, so against the demo token it shows minutes and a "Fast demo" preset automatically.
+Deploy it with your keystore, then build the extension pointing at it:
+```sh
+forge script script/DeployDemoFast.s.sol --rpc-url base_sepolia --sender <you> --account <keystore> --broadcast
+VITE_PUSDC=<printed address> npm run build
+```
+Countdowns follow the chain's clock (latest block), not the computer's.
+
 ## Testing
 `npm run test:e2e` starts an anvil fork of Base Sepolia, builds a test copy of the extension (`dist-test`), and drives real Chromium through 20 checks: onboarding and quiz validation, lock/unlock, one-click funding, protection wizard, instant vs scheduled sends, cancel, looser-vs-stricter settings, dApp connect / sign / typed data / reject / "Schedule it instead" / read passthrough, Guard, and the emergency-PIN sweep with decoy.
-Needs foundry (`anvil`, `cast`) and a Chromium (set `CHROME=/path/to/chrome` if it isn't found in the Playwright cache). Not covered: Chrome notifications and auto-lock timing.
+Needs foundry (`anvil`, `cast`) and a Chromium (set `CHROME=/path/to/chrome` if it isn't found in the Playwright cache). `npm run test:e2e:fast` deploys the demo token on the fork and checks minute-level scheduling, completion after 2 minutes and the 10-minute limit reset. Not covered: Chrome notifications and auto-lock timing.
 
 ## Not done
 Multiple accounts, other chains, token list beyond pUSDC, transaction history from chain (activity shows what you did in this wallet), an independent security review.

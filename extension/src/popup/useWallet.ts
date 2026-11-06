@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
 import { call } from "./api";
-import { readProtection, type Protection } from "../shared/read";
+import { chainNow, readBounds, readProtection, type Protection } from "../shared/read";
+import { DEFAULT_BOUNDS, type Bounds } from "../shared/presets";
 import type { WalletState } from "../shared/messages";
 
 export function useWalletState() {
@@ -27,4 +28,20 @@ export function useProtection(address?: Address, every = 6000) {
     return () => clearInterval(t);
   }, [load, every]);
   return { data, error, reload: load };
+}
+
+export function useBounds(): Bounds {
+  const [b, setB] = useState<Bounds>(DEFAULT_BOUNDS);
+  useEffect(() => { void readBounds().then(setB); }, []);
+  return b;
+}
+
+/** Like useNow, but on the chain's clock (see chainNow). Ticks every second. */
+export function useChainNow(): number {
+  const [now, setNow] = useState(chainNow);
+  useEffect(() => {
+    const t = setInterval(() => setNow(chainNow()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
 }
