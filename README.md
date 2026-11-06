@@ -27,6 +27,9 @@ Protected Token lets each holder switch on a public, on-chain "protected" flag f
 | Network | Contract | Address |
 | --- | --- | --- |
 | Base Sepolia (84532) | pUSDC (`ProtectedWrapper` around Circle's test USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`) | [`0x4045cB3524304aB25409E39C4170A76762228B2B`](https://sepolia.basescan.org/address/0x4045cB3524304aB25409E39C4170A76762228B2B) |
+| Base Sepolia (84532) | Demo USDC: **test token, anyone can mint**, 6 decimals (`script/DeployTestUSDC.s.sol`) | [`0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be`](https://sepolia.basescan.org/address/0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be) |
+| Base Sepolia (84532) | Demo pUSDC (`ProtectedWrapper` around the demo USDC) | [`0xCabC4016cc24d2A2509552378dE6e232241295a3`](https://sepolia.basescan.org/address/0xCabC4016cc24d2A2509552378dE6e232241295a3) |
+| Base Sepolia (84532) | Uniswap V2 pool, demo pUSDC/USDC, seeded with 1M + 1M | [`0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd`](https://sepolia.basescan.org/address/0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd) |
 
 ## Build and test
 
