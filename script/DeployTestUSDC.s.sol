@@ -28,9 +28,10 @@ contract DeployTestUSDC is Script {
 
     function run() external {
         require(block.chainid != 1 && block.chainid != 8453, "testnet only");
-        address me = msg.sender;
-
         vm.startBroadcast();
+        // The broadcasting wallet (--account/--private-key). Plain msg.sender is forge's default sender unless
+        // --sender is also passed.
+        (, address me,) = vm.readCallers();
         MockERC20 tusdc = new MockERC20("USD Coin", "USDC", 6);
         ProtectedWrapper pusdc = new ProtectedWrapper(tusdc, "Protected USDC", "pUSDC");
 
