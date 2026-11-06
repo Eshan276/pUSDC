@@ -6,7 +6,7 @@ Crypto transfers are instant and final, so a stolen key or a wrench attack drain
 Protected Token lets each holder switch on a public, on-chain "protected" flag for their own account:
 
 - Turning protection **on is instant**. Anything that **weakens** it (turning it off, changing the backup wallet,
-  raising the daily limit, shortening the hold window) only applies after a delay the holder chose (at least 7 days).
+  raising the daily limit, shortening the hold window) only applies after a delay the holder chose (at least 7 days on a production deployment).
 - Outgoing transfers above a **daily limit** don't go out instantly. A big **Send from any wallet app (e.g. MetaMask)** is
   automatically **scheduled**: it shows as sent, but the recipient gets it after a hold window, during which a pre-registered
   **backup wallet** can cancel it. Contracts pulling funds (`transferFrom`: DEXs, approvals) get a clean revert instead,
@@ -43,6 +43,19 @@ because a contract might treat `true` as "tokens moved".
 **Fast lane (opt-in).** Your backup can approve a scheduled transfer to send it immediately, so big payments don't require
 switching protection off. An attacker holding only your main key can't approve. It's off by default because if one person
 holds both keys, a physical attacker can force both approvals. Enabling it later waits the off-delay, and disabling it is instant.
+
+## Durations and per-deployment minimums
+
+Every duration (hold window, off-delay, emergency lock) is stored in seconds, so minutes, hours and days all work. The
+**minimums are fixed per deployment** in the constructor (immutable, no admin):
+
+| Deployment | Min hold | Min off-delay | Min lock | Set by |
+| --- | --- | --- | --- | --- |
+| Production (`script/Deploy.s.sol`) | 1 day | 7 days | 1 day | `DEFAULT_MIN_*` constants |
+| Demo / testnet (`script/DeployTestUSDC.s.sol`) | 1 minute | 2 minutes | 1 minute | so the whole flow can be shown live |
+
+Override either script with `MIN_HOLD`, `MIN_OFF_DELAY`, `MIN_LOCK` (in seconds). The app reads the minimums from the
+contract and offers a "Quick demo" preset on minute-level deployments.
 
 ## Deployments
 

@@ -208,7 +208,8 @@ export function PendingList({ title, transfers, loading, role, fastLane }: { tit
       ) : (
         <ul className="space-y-3">
           {transfers.map((t) => {
-            const left = t.executableAt - now;
+            // 5s margin: the chain's clock only advances with each block (~2s on Base).
+            const left = t.executableAt + 5 - now;
             const ready = left <= 0;
             const unwrap = t.to.toLowerCase() === PUSDC.toLowerCase();
             return (

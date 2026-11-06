@@ -50,8 +50,7 @@ export function Welcome() {
       <div className="mx-auto mt-10 max-w-2xl rounded-3xl bg-muted p-6 text-sm leading-relaxed">
         <h2 className="font-bold">Why a thief can't just switch it off</h2>
         <p className="mt-1.5 text-muted-foreground">
-          Turning protection on is instant. Turning it off, or loosening any setting, takes a waiting period you choose (at least a
-          week). During that time you'll see it coming, and your backup wallet can step in.
+          Turning protection on is instant. Turning it off, or loosening any setting, takes a waiting period you choose. During that time you'll see it coming, and your backup wallet can step in.
         </p>
       </div>
     </div>

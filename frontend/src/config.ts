@@ -12,12 +12,6 @@ export const DECIMALS = 6;
 export const IS_TESTNET = true;
 
 export const DAY = 86_400;
-/** Protocol bounds, mirrored from ProtectedERC20's MIN_* and MAX_* constants (in days). */
-export const BOUNDS = {
-  hold: { min: 1, max: 30 },
-  offDelay: { min: 7, max: 365 },
-  lock: { min: 1, max: 365 },
-} as const;
 
 /** Matches ProtectedERC20.Param. */
 export const Param = { DailyLimit: 0, HoldWindow: 1, OffDelay: 2, LockDuration: 3 } as const;
