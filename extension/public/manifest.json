@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Protected Wallet",
+  "version": "0.1.0",
+  "description": "A self-custody wallet with built-in seatbelts for protected tokens like pUSDC.",
+  "minimum_chrome_version": "111",
+  "action": { "default_popup": "popup.html", "default_title": "Protected Wallet" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["storage", "alarms", "notifications"],
+  "host_permissions": ["https://sepolia.base.org/*"],
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["inpage.js"], "run_at": "document_start", "world": "MAIN" },
+    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_start" }
+  ],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" }
+}
