@@ -30,6 +30,19 @@ export MAINNET_RPC_URL=<your mainnet RPC>   # needed for the fork demo test
 forge test -vv
 ```
 
+## Try the demo in a terminal
+
+This runs the whole story on a local mainnet fork, with real USDC and the real Uniswap V2. Nothing touches the
+real chain.
+
+```sh
+# terminal 1: local fork of mainnet
+anvil --fork-url "$MAINNET_RPC_URL" --auto-impersonate
+
+# terminal 2: step-by-step demo (press Enter between steps; DEMO_AUTO=1 runs it without pauses)
+./script/demo.sh
+```
+
 ## License
 
 MIT
