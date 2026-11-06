@@ -16,7 +16,7 @@ interface IUniswapV2FactoryLike {
     function getPair(address, address) external view returns (address);
 }
 
-/// @notice TESTNET ONLY. Deploys an openly mintable 6-decimal "Test USD Coin" (tUSDC), a pUSDC wrapper around
+/// @notice TESTNET ONLY. Deploys an openly mintable 6-decimal test token named "USD Coin" (USDC), a pUSDC wrapper around
 ///         it, and a Uniswap V2 pool, so the demo can use 100k+ amounts that Circle's faucet can't provide.
 ///   forge script script/DeployTestUSDC.s.sol --rpc-url base_sepolia --account deployer --broadcast
 contract DeployTestUSDC is Script {
@@ -31,8 +31,8 @@ contract DeployTestUSDC is Script {
         address me = msg.sender;
 
         vm.startBroadcast();
-        MockERC20 tusdc = new MockERC20("Test USD Coin", "tUSDC", 6);
-        ProtectedWrapper pusdc = new ProtectedWrapper(tusdc, "Protected Test USDC", "pUSDC");
+        MockERC20 tusdc = new MockERC20("USD Coin", "USDC", 6);
+        ProtectedWrapper pusdc = new ProtectedWrapper(tusdc, "Protected USDC", "pUSDC");
 
         tusdc.mint(me, 2 * POOL_SIDE + 2 * DEPLOYER_EXTRA);
         tusdc.approve(address(pusdc), type(uint256).max);
@@ -43,11 +43,11 @@ contract DeployTestUSDC is Script {
         ROUTER.addLiquidity(address(pusdc), address(tusdc), POOL_SIDE, POOL_SIDE, 0, 0, me, block.timestamp + 1 hours);
         vm.stopBroadcast();
 
-        console2.log("tUSDC (mint: mint(address,uint256)):", address(tusdc));
+        console2.log("test USDC (anyone can mint(address,uint256)):", address(tusdc));
         console2.log("pUSDC:", address(pusdc));
         console2.log(
             "Uniswap V2 pair:", IUniswapV2FactoryLike(ROUTER.factory()).getPair(address(pusdc), address(tusdc))
         );
-        console2.log("deployer now holds 200k pUSDC + 200k tUSDC; pool holds 1M + 1M");
+        console2.log("deployer now holds 200k pUSDC + 200k test USDC; pool holds 1M + 1M");
     }
 }
