@@ -22,6 +22,20 @@ Protected Token lets each holder switch on a public, on-chain "protected" flag f
 | `src/ProtectedWrapper.sol` | 1:1 wrapper for an existing ERC-20 (pUSDC) |
 | `test/` | Unit tests, plus `DemoScenario.t.sol`, which runs the whole demo on a mainnet fork |
 
+## Security model: what it does and doesn't protect against
+
+| Situation | Outcome |
+| --- | --- |
+| Key stolen **after** protection is on | The thief gets at most the daily limit. Anything bigger is scheduled publicly and can be cancelled by you or your backup. Turning protection off, loosening a setting or changing the backup all wait the off-delay, and the emergency button cancels them. |
+| Someone forces you to hand over funds (wrench attack) | The emergency button (or your backup) moves everything to the backup, where it's locked. Nobody can release it early, including you. |
+| Key **already** leaked **before** you turn protection on | Not protected: protection isn't retroactive, and the attacker could even front-run `protect()` with their own backup. Set up protection on a **fresh wallet before funding it**. The app warns about this, and flags a backup you never chose. |
+| Leaked key, attacker waits for you to switch protection off | Once it's off, whoever holds the key has full control. Don't switch off a possibly-compromised wallet: **move funds to a new wallet** instead (the app has a button for it), or use the fast lane so you never need to switch off. |
+| Both your main key and backup key compromised | Not protected. The backup is the root of trust. |
+
+**Fast lane (opt-in).** Your backup can approve a scheduled transfer to send it immediately, so big payments don't require
+switching protection off. An attacker holding only your main key can't approve. It's off by default because if one person
+holds both keys, a physical attacker can force both approvals. Enabling it later waits the off-delay, and disabling it is instant.
+
 ## Deployments
 
 | Network | Contract | Address |
