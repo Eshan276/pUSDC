@@ -18,7 +18,7 @@ First install opens a full-page welcome flow. Needs `../frontend` (shared UI + g
 
 ## Minute-level demo token
 The real token enforces day-level delays. For live demos there is a testnet-only variant (`src/demo/DemoFastProtectedWrapper.sol`: 1-minute minimums, 10-minute daily window). The wallet reads the allowed ranges from the contract, so against the demo token it shows minutes and a "Fast demo" preset automatically.
-Deploy it with your keystore, then build the extension pointing at it:
+Deploy it with your keystore, then either paste the printed address into the wallet (**More → Demo token → Use this token**, no rebuild needed; "Back to default" undoes it), or build the extension pointing at it:
 ```sh
 forge script script/DeployDemoFast.s.sol --rpc-url base_sepolia --sender <you> --account <keystore> --broadcast
 VITE_PUSDC=<printed address> npm run build

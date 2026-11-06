@@ -4,7 +4,7 @@ import {
 import { english, generateMnemonic, mnemonicToAccount, type HDAccount } from "viem/accounts";
 import { encodeFunctionData } from "viem";
 import { pusdcAbi } from "@abi";
-import { CHAIN, CHAIN_ID_HEX, PUSDC, RPC_URL, publicClient } from "../shared/chain";
+import { CHAIN, CHAIN_ID_HEX, PUSDC, RPC_URL, cfgReady, publicClient } from "../shared/chain";
 import { alertKeys, readProtection } from "../shared/read";
 import { fmtAmount, shortAddr } from "../shared/format";
 import type { Approval, ApprovalKind, Req, Res, WalletState } from "../shared/messages";
@@ -246,7 +246,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   const done = (r: Res) => reply(JSON.parse(JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v))));
   if (msg?.dapp) {
     if (sender.tab === undefined) return;
-    rpc(msg.method, msg.params ?? [], msg.origin).then(
+    cfgReady.then(() => rpc(msg.method, msg.params ?? [], msg.origin)).then(
       (data) => done({ ok: true, data }),
       (e) => reply({ ok: false, error: e?.shortMessage ?? e?.message ?? "Request failed", code: e?.code ?? -32603 }),
     );
@@ -254,7 +254,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   if (sender.id !== chrome.runtime.id) return;
   if ((msg as Req).t !== "state" && (msg as Req).t !== "lock") void scheduleLock();
-  handle(msg as Req).then(
+  cfgReady.then(() => handle(msg as Req)).then(
     (data) => done({ ok: true, data }),
     (e) => reply({ ok: false, error: e?.shortMessage ?? e?.message ?? String(e) }),
   );
@@ -267,6 +267,7 @@ chrome.alarms.onAlarm.addListener((al) => { if (al.name === "guard") void guard(
 chrome.runtime.onStartup.addListener(() => void guard());
 
 async function guard() {
+  await cfgReady;
   const s = await getSession();
   const mine = s.mnemonic ? accountOf(s.mnemonic).address : undefined;
   // Watching works while locked too; only your own wallet is added when it's unlocked.

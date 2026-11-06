@@ -4,7 +4,9 @@ import type { Address } from "viem";
 import { isAddress } from "viem";
 import { pusdcAbi } from "@abi";
 import { Button, Card, Field, HoldButton, Notice, inputClass } from "@ui/ui";
-import { PUSDC, EXPLORER, DECIMALS } from "../shared/chain";
+import { PUSDC, USDC, EXPLORER, DECIMALS, DEFAULT_PUSDC, publicClient, setTokenOverride } from "../shared/chain";
+import { resetBounds } from "../shared/read";
+import { isFast } from "../shared/presets";
 import { Param, durError, unitFor, type Bounds } from "../shared/presets";
 import { useBounds, useChainNow } from "./useWallet";
 import { fmtAmount, fmtDate, fmtDuration, parseAmount, shortAddr } from "../shared/format";
@@ -15,7 +17,7 @@ import { PhraseGrid, strength } from "./Onboarding";
 import { useSend, type Activity } from "./useSend";
 
 type Tx = ReturnType<typeof useSend>;
-type Page = "menu" | "protection" | "security" | "activity" | "emergency";
+type Page = "menu" | "protection" | "security" | "activity" | "emergency" | "token";
 
 export function MoreTab(p: { data: Protection | undefined; me: Address; tx: Tx; state: WalletState; refresh: () => void; initialPage?: Page }) {
   const [page, setPage] = useState<Page>(p.initialPage ?? "menu");
@@ -27,6 +29,7 @@ export function MoreTab(p: { data: Protection | undefined; me: Address; tx: Tx; 
       { id: "emergency", icon: ShieldAlert, title: "Emergency", sub: "Move everything to safety" },
       { id: "security", icon: Lock, title: "Security", sub: "Password, emergency PIN, auto-lock, recovery phrase" },
       { id: "activity", icon: History, title: "Activity", sub: "What you've done in this wallet" },
+      { id: "token", icon: Timer, title: "Demo token", sub: "Switch to a token with minute-level delays" },
     ];
     return (
       <>
@@ -54,6 +57,7 @@ export function MoreTab(p: { data: Protection | undefined; me: Address; tx: Tx; 
       {page === "emergency" && <Emergency {...p} />}
       {page === "security" && <Security {...p} />}
       {page === "activity" && <ActivityList />}
+      {page === "token" && <TokenSettings />}
     </>
   );
 }
@@ -257,6 +261,50 @@ function ActivityList() {
           </li>
         ))}
       </ul>
+    </>
+  );
+}
+
+/* ───────── demo token ───────── */
+
+function TokenSettings() {
+  const bounds = useBounds();
+  const [addr, setAddr] = useState("");
+  const [msg, setMsg] = useState<{ tone: "success" | "danger"; text: string }>();
+  const [busy, setBusy] = useState(false);
+  const custom = PUSDC.toLowerCase() !== DEFAULT_PUSDC.toLowerCase();
+
+  async function use(a: string) {
+    setBusy(true); setMsg(undefined);
+    try {
+      if (!isAddress(a)) throw new Error("That doesn't look like an address.");
+      // Make sure it really is a protected token wrapper before switching to it.
+      const underlying = await publicClient.readContract({ address: a, abi: pusdcAbi, functionName: "underlying" }).catch(() => { throw new Error("That address isn't a Protected Wallet token on Base Sepolia."); });
+      await publicClient.readContract({ address: a, abi: pusdcAbi, functionName: "limitPeriod" }).catch(() => undefined);
+      await setTokenOverride({ pusdc: a, usdc: underlying as `0x${string}` });
+      resetBounds();
+      location.reload();
+    } catch (e) { setMsg({ tone: "danger", text: e instanceof Error ? e.message : String(e) }); setBusy(false); }
+  }
+
+  return (
+    <>
+      <h2 className="text-lg font-extrabold">Demo token</h2>
+      <Card className="space-y-3">
+        <p className="text-sm text-muted-foreground">The real token uses delays of days. For live demos there's a test-only token whose delays can be set in minutes. Paste its address to switch; the wallet reads the allowed times from it.</p>
+        <dl className="divide-y divide-border rounded-2xl border border-border text-sm">
+          <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-muted-foreground">Token</dt><dd className="break-all text-right font-mono text-xs">{PUSDC}</dd></div>
+          <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-muted-foreground">Underlying</dt><dd className="break-all text-right font-mono text-xs">{USDC}</dd></div>
+          <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-muted-foreground">Delays</dt><dd className="font-semibold">{isFast(bounds) ? "Minutes (demo)" : "Days"}</dd></div>
+        </dl>
+        <Field label="Token address" htmlFor="tok"><input id="tok" className={`${inputClass} font-mono text-sm`} value={addr} onChange={(e) => setAddr(e.target.value.trim())} placeholder="0x…" /></Field>
+        {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
+        <div className="flex gap-2">
+          <Button className="flex-1" disabled={!addr} loading={busy} onClick={() => use(addr)}>Use this token</Button>
+          {custom && <Button variant="secondary" loading={busy} onClick={async () => { await setTokenOverride(undefined); resetBounds(); location.reload(); }}>Back to default</Button>}
+        </div>
+        {isFast(bounds) && <Notice tone="warning">This token's short delays are for testing only. They remove the protection that stops a thief from setting delays to zero.</Notice>}
+      </Card>
     </>
   );
 }

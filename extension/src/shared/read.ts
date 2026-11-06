@@ -3,7 +3,7 @@ import { pusdcAbi, usdcAbi } from "@abi";
 import { PUSDC, USDC, publicClient } from "./chain";
 import { DEFAULT_BOUNDS, type Bounds } from "./presets";
 
-const p = { address: PUSDC, abi: pusdcAbi } as const;
+const P = () => ({ address: PUSDC, abi: pusdcAbi }) as const;
 
 /** Seconds the chain's clock is ahead of this computer's. Countdowns add it so they match what the contract will enforce. */
 let clockOffset = 0;
@@ -17,18 +17,18 @@ export async function readProtection(a: Address) {
   const r = await publicClient.multicall({
     allowFailure: false,
     contracts: [
-      { ...p, functionName: "balanceOf", args: [a] },
-      { ...p, functionName: "availableBalanceOf", args: [a] },
-      { ...p, functionName: "reservedOf", args: [a] },
-      { ...p, functionName: "lockOf", args: [a] },
-      { ...p, functionName: "protectionOf", args: [a] },
-      { ...p, functionName: "dailyLimitRemaining", args: [a] },
-      { ...p, functionName: "pendingParamChange", args: [a, 0] },
-      { ...p, functionName: "pendingParamChange", args: [a, 1] },
-      { ...p, functionName: "pendingParamChange", args: [a, 2] },
-      { ...p, functionName: "pendingParamChange", args: [a, 3] },
-      { ...p, functionName: "pendingBackupChange", args: [a] },
-      { ...p, functionName: "pendingTransferIds", args: [a] },
+      { ...P(), functionName: "balanceOf", args: [a] },
+      { ...P(), functionName: "availableBalanceOf", args: [a] },
+      { ...P(), functionName: "reservedOf", args: [a] },
+      { ...P(), functionName: "lockOf", args: [a] },
+      { ...P(), functionName: "protectionOf", args: [a] },
+      { ...P(), functionName: "dailyLimitRemaining", args: [a] },
+      { ...P(), functionName: "pendingParamChange", args: [a, 0] },
+      { ...P(), functionName: "pendingParamChange", args: [a, 1] },
+      { ...P(), functionName: "pendingParamChange", args: [a, 2] },
+      { ...P(), functionName: "pendingParamChange", args: [a, 3] },
+      { ...P(), functionName: "pendingBackupChange", args: [a] },
+      { ...P(), functionName: "pendingTransferIds", args: [a] },
       { address: USDC, abi: usdcAbi, functionName: "balanceOf", args: [a] },
       { address: USDC, abi: usdcAbi, functionName: "allowance", args: [a, PUSDC] },
     ],
@@ -39,7 +39,7 @@ export async function readProtection(a: Address) {
   const details = ids.length
     ? await publicClient.multicall({
         allowFailure: false,
-        contracts: ids.map((id) => ({ ...p, functionName: "getQueuedTransfer", args: [id] }) as const),
+        contracts: ids.map((id) => ({ ...P(), functionName: "getQueuedTransfer", args: [id] }) as const),
       })
     : [];
   const pending: PendingTransfer[] = details
@@ -76,16 +76,17 @@ export function alertKeys(x: Protection): string[] {
 }
 
 let boundsCache: Promise<Bounds> | undefined;
+export const resetBounds = () => { boundsCache = undefined; };
 /** Reads the allowed time ranges from the contract. Older deployments lack these views, so fall back to the real-token rules. */
 export function readBounds(): Promise<Bounds> {
   boundsCache ??= publicClient
     .multicall({
       allowFailure: true,
       contracts: [
-        { ...p, functionName: "paramBounds", args: [1] },
-        { ...p, functionName: "paramBounds", args: [2] },
-        { ...p, functionName: "paramBounds", args: [3] },
-        { ...p, functionName: "limitPeriod" },
+        { ...P(), functionName: "paramBounds", args: [1] },
+        { ...P(), functionName: "paramBounds", args: [2] },
+        { ...P(), functionName: "paramBounds", args: [3] },
+        { ...P(), functionName: "limitPeriod" },
       ],
     })
     .then(([h, o, l, per]) => {
