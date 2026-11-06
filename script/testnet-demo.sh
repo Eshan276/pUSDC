@@ -84,7 +84,7 @@ run)
   swap $ALICE_KEY 20000000000 $PUSDC $USDC $ALICE
 
   say "c. Alice turns protection ON: 1,000/day limit, 1-day hold, 7-day off-delay, 1-day lock"
-  send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64)' $BACKUP 1000000000 86400 604800 86400
+  send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64,bool)' $BACKUP 1000000000 86400 604800 86400 false
   note "isProtected(alice) = $(call $PUSDC 'isProtected(address)(bool)' $ALICE)"
   note "Small swap, 500 pUSDC:"; swap $ALICE_KEY 500000000 $PUSDC $USDC $ALICE
   note "Large swap, 10,000 pUSDC:"

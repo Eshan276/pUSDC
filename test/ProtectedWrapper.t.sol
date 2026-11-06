@@ -34,7 +34,7 @@ contract ProtectedWrapperTest is Test {
 
     function _protect() internal {
         vm.prank(alice);
-        pusdc.protect(bob, LIMIT, HOLD, OFF, LOCK);
+        pusdc.protect(bob, LIMIT, HOLD, OFF, LOCK, false);
     }
 
     function test_Metadata() public view {

@@ -78,7 +78,7 @@ contract DemoScenarioTest is Test {
 
         // ── c. Turn the flag on (instant). Small swaps still work, large ones revert ──
         vm.prank(alice);
-        pusdc.protect(backup, DAILY_LIMIT, HOLD, OFF_DELAY, LOCK);
+        pusdc.protect(backup, DAILY_LIMIT, HOLD, OFF_DELAY, LOCK, false);
         assertTrue(pusdc.isProtected(alice));
 
         _swap(alice, address(pusdc), address(USDC), 500e6);

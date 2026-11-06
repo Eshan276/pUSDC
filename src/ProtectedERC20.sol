@@ -87,6 +87,15 @@ pragma solidity ^0.8.24;
  *     like a plain ERC-20. Our own errors appear only when the protection rules
  *     cause the revert.
  *
+ * 14. Fast lane (opt-in). If the holder enables `fastLane`, the backup wallet
+ *     can `approveTransfer(id)` to execute a queued transfer immediately, so a
+ *     big payment never needs protection switched off. An attacker holding only
+ *     the main key can't get the approval. Trade-off: if one person holds both
+ *     keys (e.g. two wallets on the same phone), a physical attacker can force
+ *     both, so it's off by default. Enabling it later is a loosening (delayed by
+ *     offDelay); disabling it is instant; stress() cancels a pending enable.
+ *     Choosing it in protect() is instant, like the rest of the initial setup.
+ *
  * No owner, no admin, no upgradeability, no fees.
  */
 
@@ -132,6 +141,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     struct Protection {
         bool active;
         uint64 flagOffAt; // 0 = no flag-off pending
+        bool fastLane; // backup may approve queued transfers for immediate execution
+        uint64 fastLaneAt; // 0 = no fast-lane enable pending
         address backup;
         address pendingBackup;
         uint64 pendingBackupAt; // 0 = no backup change pending
@@ -167,6 +178,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         uint64 offDelay;
         uint64 lockDuration;
         uint64 flagOffAt;
+        bool fastLane;
+        uint64 fastLaneAt; // pending enable time, 0 if none
     }
 
     // ────────────────────────────── storage ──────────────────────────────
@@ -193,7 +206,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         uint256 dailyLimit,
         uint64 holdWindow,
         uint64 offDelay,
-        uint64 lockDuration
+        uint64 lockDuration,
+        bool fastLane
     );
     event FlagOffRequested(address indexed account, uint64 effectiveAt);
     event FlagOffCancelled(address indexed account);
@@ -212,6 +226,10 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     );
     event TransferCancelled(uint256 indexed id, address indexed by);
     event TransferExecuted(uint256 indexed id, address indexed by);
+    event TransferApproved(uint256 indexed id, address indexed backup);
+
+    event FastLaneUpdated(address indexed account, bool enabled);
+    event FastLaneChangeRequested(address indexed account, uint64 effectiveAt);
 
     event StressTriggered(
         address indexed account, address indexed backup, address indexed by, uint256 amount, uint64 lockedUntil
@@ -231,15 +249,21 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     error InsufficientUnlockedBalance(address account, uint256 amount, uint256 available);
     error TransferNotPending(uint256 id);
     error HoldNotExpired(uint256 id, uint64 executableAt);
+    error FastLaneOff(address account);
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) ERC20Permit(name_) {}
 
     // ═════════════════════════ protection settings ═════════════════════════
 
-    /// @notice Turn protection on for `msg.sender`. Instant.
-    function protect(address backup, uint256 dailyLimit, uint64 holdWindow, uint64 offDelay, uint64 lockDuration)
-        external
-    {
+    /// @notice Turn protection on for `msg.sender`. Instant, including the initial fast-lane choice.
+    function protect(
+        address backup,
+        uint256 dailyLimit,
+        uint64 holdWindow,
+        uint64 offDelay,
+        uint64 lockDuration,
+        bool fastLane
+    ) external {
         _sync(msg.sender);
         Protection storage p = _protection[msg.sender];
         if (p.active) revert AlreadyProtected(msg.sender);
@@ -251,6 +275,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
 
         p.active = true;
         p.flagOffAt = 0;
+        p.fastLane = fastLane;
+        p.fastLaneAt = 0;
         p.backup = backup;
         p.pendingBackup = address(0);
         p.pendingBackupAt = 0;
@@ -261,7 +287,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         delete p.pending;
         delete _spend[msg.sender];
 
-        emit FlagOn(msg.sender, backup, dailyLimit, holdWindow, offDelay, lockDuration);
+        emit FlagOn(msg.sender, backup, dailyLimit, holdWindow, offDelay, lockDuration, fastLane);
     }
 
     /// @notice Schedule turning protection off after the current `offDelay`.
@@ -303,6 +329,20 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         if (p.pending[i].effectiveAt == 0) revert NothingPending();
         delete p.pending[i];
         emit ParamChangeCancelled(msg.sender, param);
+    }
+
+    /// @notice Turn the fast lane off (instant) or on (a loosening: scheduled after `offDelay`).
+    function setFastLane(bool enabled) external {
+        Protection storage p = _requireActive(msg.sender);
+        if (!enabled) {
+            p.fastLane = false;
+            p.fastLaneAt = 0;
+            emit FastLaneUpdated(msg.sender, false);
+        } else if (!p.fastLane) {
+            uint64 at = uint64(block.timestamp) + uint64(p.params[uint256(Param.OffDelay)]);
+            p.fastLaneAt = at;
+            emit FastLaneChangeRequested(msg.sender, at);
+        }
     }
 
     /// @notice Schedule a backup wallet change. Always delayed by `offDelay`.
@@ -372,7 +412,25 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         QueuedTransfer storage q = _queued[id];
         if (!_isPending(q)) revert TransferNotPending(id);
         if (block.timestamp < q.executableAt) revert HoldNotExpired(id, q.executableAt);
+        _executeQueued(id, q);
+    }
 
+    /// @notice Fast lane: the sender's backup wallet approves a queued transfer, which executes immediately.
+    /// @dev Only works while the sender is protected and has the fast lane enabled (design note 14).
+    function approveTransfer(uint256 id) external nonReentrant {
+        QueuedTransfer storage q = _queued[id];
+        if (!_isPending(q)) revert TransferNotPending(id);
+        address from = q.from;
+        _sync(from);
+        Protection storage p = _protection[from];
+        if (!p.active) revert NotProtected(from);
+        if (msg.sender != p.backup) revert Unauthorized(msg.sender);
+        if (!p.fastLane) revert FastLaneOff(from);
+        emit TransferApproved(id, msg.sender);
+        _executeQueued(id, q);
+    }
+
+    function _executeQueued(uint256 id, QueuedTransfer storage q) private {
         (address from, address to, uint256 amount) = (q.from, q.to, q.amount);
         q.status = TransferStatus.Executed;
         _reserved[from] -= amount;
@@ -401,6 +459,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
 
         // (b) Cancel every pending protection decrease.
         p.flagOffAt = 0;
+        p.fastLaneAt = 0;
         p.pendingBackup = address(0);
         p.pendingBackupAt = 0;
         delete p.pending;
@@ -440,6 +499,9 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         v.offDelay = uint64(_effectiveParam(p, Param.OffDelay));
         v.lockDuration = uint64(_effectiveParam(p, Param.LockDuration));
         v.flagOffAt = v.active ? p.flagOffAt : 0;
+        bool laneMatured = p.fastLaneAt != 0 && block.timestamp >= p.fastLaneAt;
+        v.fastLane = v.active && (p.fastLane || laneMatured);
+        v.fastLaneAt = v.active && !laneMatured ? p.fastLaneAt : 0;
     }
 
     /// @notice Time at which a pending flag-off takes effect (0 if none is pending).
@@ -556,6 +618,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         if (p.flagOffAt != 0 && block.timestamp >= p.flagOffAt) {
             p.active = false;
             p.flagOffAt = 0;
+            p.fastLane = false;
+            p.fastLaneAt = 0;
             p.pendingBackup = address(0);
             p.pendingBackupAt = 0;
             delete p.pending;
@@ -569,6 +633,12 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
             p.pendingBackup = address(0);
             p.pendingBackupAt = 0;
             emit BackupChanged(account, old, p.backup);
+        }
+
+        if (p.fastLaneAt != 0 && block.timestamp >= p.fastLaneAt) {
+            p.fastLane = true;
+            p.fastLaneAt = 0;
+            emit FastLaneUpdated(account, true);
         }
 
         for (uint256 i; i < PARAM_COUNT; ++i) {

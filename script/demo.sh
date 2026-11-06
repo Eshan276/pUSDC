@@ -93,7 +93,7 @@ swap $ALICE_KEY 20000000000 $PUSDC $USDC $ALICE
 show; pause
 
 say "c. Alice turns protection ON (instant): backup wallet, 1,000/day limit, 72h hold, 7d off-delay, 14d lock"
-send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64)' $BACKUP 1000000000 259200 604800 1209600
+send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64,bool)' $BACKUP 1000000000 259200 604800 1209600 false
 note "isProtected(alice) = $(cast call $PUSDC 'isProtected(address)(bool)' $ALICE --rpc-url "$RPC")"
 note "Small swap of 500 pUSDC:"
 swap $ALICE_KEY 500000000 $PUSDC $USDC $ALICE; note "OK"
