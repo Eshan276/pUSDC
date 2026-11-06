@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {ProtectedERC20} from "../src/ProtectedERC20.sol";
 import {TestProtectedToken} from "./mocks/TestProtectedToken.sol";
@@ -888,6 +888,99 @@ contract ProtectedERC20Test is Test {
         vm.prank(bob);
         vm.expectRevert(_errLocked(bob, 1, 0));
         token.queueTransfer(mallory, 1);
+    }
+
+    // ═════════════ auto-scheduling: an over-limit plain send from a wallet is queued, not reverted ═════════════
+
+    bytes32 constant TRANSFER_SIG = keccak256("Transfer(address,address,uint256)");
+
+    function test_AutoQueue_WalletSendOverLimitIsScheduled() public {
+        _protect();
+        vm.recordLogs();
+        vm.prank(alice, alice); // a normal wallet sending its own transaction (like MetaMask "Send")
+        assertTrue(token.transfer(carol, 500e18));
+
+        // Nothing moved yet and no Transfer event was emitted; it's a pending scheduled transfer.
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i; i < logs.length; ++i) {
+            assertTrue(logs[i].topics[0] != TRANSFER_SIG, "no Transfer event until execution");
+        }
+        assertEq(token.balanceOf(carol), 0);
+        assertEq(token.balanceOf(alice), 1_000e18);
+        assertEq(token.reservedOf(alice), 500e18);
+        assertEq(token.dailyLimitRemaining(alice), LIMIT); // limit untouched
+        uint256[] memory ids = token.pendingTransferIds(alice);
+        assertEq(ids.length, 1);
+
+        vm.warp(START + HOLD);
+        token.executeTransfer(ids[0]);
+        assertEq(token.balanceOf(carol), 500e18);
+    }
+
+    function test_AutoQueue_WithinLimitIsInstant() public {
+        _protect();
+        vm.prank(alice, alice);
+        token.transfer(carol, 60e18);
+        assertEq(token.balanceOf(carol), 60e18);
+        assertEq(token.reservedOf(alice), 0);
+    }
+
+    function test_AutoQueue_BackupCanCancel() public {
+        _protect();
+        vm.prank(alice, alice); // attacker using the stolen key in a wallet app
+        token.transfer(mallory, 900e18);
+        uint256 id = token.pendingTransferIds(alice)[0];
+        vm.prank(bob);
+        token.cancelTransfer(id);
+        vm.warp(START + HOLD);
+        vm.expectRevert(abi.encodeWithSelector(ProtectedERC20.TransferNotPending.selector, id));
+        token.executeTransfer(id);
+        assertEq(token.balanceOf(mallory), 0);
+    }
+
+    function test_AutoQueue_TransferFromStillReverts() public {
+        _protect();
+        vm.prank(alice);
+        token.approve(carol, type(uint256).max);
+        vm.prank(carol, carol);
+        vm.expectRevert(_errLimit(500e18, LIMIT));
+        token.transferFrom(alice, carol, 500e18);
+        assertEq(token.reservedOf(alice), 0);
+    }
+
+    function test_AutoQueue_ContractCallersStillRevert() public {
+        _protect();
+        // msg.sender != tx.origin: a contract (or anything not sending its own transaction) gets a clean revert.
+        vm.prank(alice);
+        vm.expectRevert(_errLimit(500e18, LIMIT));
+        token.transfer(carol, 500e18);
+
+        // An account with code (smart wallet / EIP-7702 delegation) also gets a revert.
+        vm.etch(alice, hex"00");
+        vm.prank(alice, alice);
+        vm.expectRevert(_errLimit(500e18, LIMIT));
+        token.transfer(carol, 500e18);
+    }
+
+    function test_AutoQueue_MoreThanAvailableReverts() public {
+        _protect();
+        _queue(950e18); // 50 left
+        vm.prank(alice, alice);
+        vm.expectRevert(_errLocked(alice, 60e18, 50e18));
+        token.transfer(carol, 60e18);
+    }
+
+    function test_AutoQueue_UnprotectedIsUnaffected() public {
+        vm.prank(alice, alice);
+        token.transfer(carol, 900e18);
+        assertEq(token.balanceOf(carol), 900e18);
+    }
+
+    function test_AutoQueue_InvalidRecipientReverts() public {
+        _protect();
+        vm.prank(alice, alice);
+        vm.expectRevert(abi.encodeWithSelector(ProtectedERC20.InvalidRecipient.selector, alice));
+        token.transfer(alice, 500e18);
     }
 }
 

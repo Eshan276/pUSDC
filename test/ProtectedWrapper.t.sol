@@ -147,4 +147,17 @@ contract ProtectedWrapperTest is Test {
         assertEq(usdc.balanceOf(bob), 1_000e6);
         assertEq(pusdc.totalSupply(), 0);
     }
+
+    function test_AutoQueue_WalletSendToWrapperSchedulesUnwrap() public {
+        _protect();
+        vm.prank(alice, alice); // "Send pUSDC to the pUSDC contract" from a wallet app
+        pusdc.transfer(address(pusdc), 900e6);
+        assertEq(usdc.balanceOf(alice), 0);
+        assertEq(pusdc.reservedOf(alice), 900e6);
+        uint256 id = pusdc.pendingTransferIds(alice)[0];
+        vm.warp(START + HOLD);
+        pusdc.executeTransfer(id);
+        assertEq(usdc.balanceOf(alice), 900e6);
+    }
 }
+

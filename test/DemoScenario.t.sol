@@ -37,6 +37,9 @@ contract DemoScenarioTest is Test {
         vm.createSelectFork(rpc);
         forked = true;
         pusdc = new ProtectedWrapper(IERC20Metadata(address(USDC)), "Protected USDC", "pUSDC");
+        // makeAddr("alice") has a publicly known key, and on mainnet someone has given it an EIP-7702 delegation.
+        // Clear it so alice is a plain wallet (code-bearing accounts never get auto-scheduled sends; see note 15).
+        vm.etch(alice, "");
         vm.label(address(USDC), "USDC");
         vm.label(address(ROUTER), "UniswapV2Router02");
         vm.label(address(pusdc), "pUSDC");
@@ -117,10 +120,12 @@ contract DemoScenarioTest is Test {
         pusdc.requestFlagOff();
         vm.warp(vm.getBlockTimestamp() + 6 days);
         assertTrue(pusdc.isProtected(alice));
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(ProtectedERC20.ExceedsDailyLimit.selector, alice, aliceBal, DAILY_LIMIT));
-        pusdc.transfer(attacker, aliceBal);
-        console2.log("e. 6 days into a 7-day flag-off delay: still protected");
+        // The attacker hits "Send all" in a wallet app: it is scheduled, not sent (the stress below cancels it).
+        vm.prank(alice, alice);
+        assertTrue(pusdc.transfer(attacker, aliceBal));
+        assertEq(pusdc.balanceOf(attacker), 0);
+        assertEq(pusdc.reservedOf(alice), aliceBal);
+        console2.log("e. 6 days into a 7-day flag-off delay: still protected; a wallet 'send all' was only scheduled");
 
         // ── f. Stress: sweep everything to the backup wallet and lock it ──
         uint256 stressAt = vm.getBlockTimestamp();

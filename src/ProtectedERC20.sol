@@ -96,6 +96,18 @@ pragma solidity ^0.8.24;
  *     offDelay); disabling it is instant; stress() cancels a pending enable.
  *     Choosing it in protect() is instant, like the rest of the initial setup.
  *
+ * 15. Over-limit plain sends from a wallet are scheduled, not reverted. When a
+ *     protected EOA calls `transfer()` directly (msg.sender == tx.origin, no
+ *     code) with more than its remaining daily limit, the transfer is queued
+ *     exactly like `queueTransfer` and `true` is returned, so "Send" in any
+ *     wallet app just works (the recipient gets it after the hold). No
+ *     `Transfer` event is emitted until execution, so off-chain indexers don't
+ *     credit it early. `transferFrom`, and `transfer` from any contract or
+ *     code-bearing account (EIP-7702 included), still revert with
+ *     ExceedsDailyLimit. A contract may treat `true` as "tokens moved" (e.g. a
+ *     lender crediting a deposit), and a holder who is also their own backup
+ *     could then cancel and keep both.
+ *
  * No owner, no admin, no upgradeability, no fees.
  */
 
@@ -374,25 +386,52 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     /// @notice Queue a transfer that can be executed after the hold window. The tokens stay reserved
     ///         in the sender's balance until then.
     function queueTransfer(address to, uint256 amount) external nonReentrant returns (uint256 id) {
-        Protection storage p = _requireActive(msg.sender);
-        if (to == address(0) || to == msg.sender) revert InvalidRecipient(to);
-        if (amount == 0) revert ZeroAmount();
-        uint256 available = availableBalanceOf(msg.sender);
-        if (amount > available) revert InsufficientUnlockedBalance(msg.sender, amount, available);
+        return _queue(msg.sender, to, amount);
+    }
 
-        _reserved[msg.sender] += amount;
+    /// @notice Plain ERC-20 transfer, with one protected-account twist (design note 15): when a normal wallet (EOA)
+    ///         sends directly and the amount is over its remaining daily limit, the transfer is scheduled exactly like
+    ///         `queueTransfer` instead of reverting, and `true` is returned. No `Transfer` event is emitted until it
+    ///         executes, so nobody (exchanges, explorers) sees the tokens as delivered early.
+    ///         `transferFrom` never does this: DEXs and other contracts get a clean revert.
+    function transfer(address to, uint256 value) public virtual override returns (bool) {
+        address owner = _msgSender();
+        if (_shouldAutoQueue(owner, value)) {
+            _queue(owner, to, value);
+            return true;
+        }
+        return super.transfer(to, value);
+    }
+
+    function _shouldAutoQueue(address owner, uint256 value) private returns (bool) {
+        _sync(owner);
+        if (!_protection[owner].active) return false;
+        // Only a plain EOA sending its own transaction. Contracts and code-bearing accounts (incl. EIP-7702) get a
+        // revert, because a contract caller might treat "returned true" as "tokens moved".
+        if (owner != tx.origin || owner.code.length != 0) return false;
+        return value > dailyLimitRemaining(owner) && value <= availableBalanceOf(owner);
+    }
+
+    function _queue(address from, address to, uint256 amount) private returns (uint256 id) {
+        Protection storage p = _requireActive(from);
+        if (to == address(0) || to == from) revert InvalidRecipient(to);
+        if (amount == 0) revert ZeroAmount();
+        uint256 available = availableBalanceOf(from);
+        if (amount > available) revert InsufficientUnlockedBalance(from, amount, available);
+
+        _reserved[from] += amount;
         id = ++queuedTransferCount;
         uint64 executableAt = uint64(block.timestamp) + uint64(p.params[uint256(Param.HoldWindow)]);
         _queued[id] = QueuedTransfer({
-            from: msg.sender,
+            from: from,
             executableAt: executableAt,
             to: to,
-            epoch: _epoch[msg.sender],
+            epoch: _epoch[from],
             amount: amount,
             status: TransferStatus.Pending
         });
-        _queuedIds[msg.sender].push(id);
-        emit TransferQueued(id, msg.sender, to, amount, executableAt);
+        _queuedIds[from].push(id);
+        emit TransferQueued(id, from, to, amount, executableAt);
     }
 
     /// @notice Cancel a pending queued transfer. Callable by the sender or the sender's backup wallet.
