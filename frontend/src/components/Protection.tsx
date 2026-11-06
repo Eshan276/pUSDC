@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatUnits, getAddress, type Address } from "viem";
-import { ArrowLeft, ArrowRight, Check, Clock, FastForward, KeyRound, LifeBuoy, PackageOpen, Pencil, ShieldCheck, TriangleAlert, Wallet, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Clock, FastForward, Send, KeyRound, LifeBuoy, PackageOpen, Pencil, ShieldCheck, TriangleAlert, Wallet, Zap } from "lucide-react";
 import { pusdcAbi } from "../abi";
 import { BOUNDS, DAY, DECIMALS, IS_TESTNET, Param, PUSDC, type ParamId } from "../config";
 import { addressProblem, fmtAmount, fmtCountdown, fmtDate, fmtDuration, parseAmount, shortAddr } from "../lib/format";
@@ -192,6 +192,10 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
               { icon: Clock, text: `Anything more waits ${fmtDuration(+s.hold * DAY)}. You or your backup can cancel it during that time.` },
               { icon: Wallet, text: `Your backup wallet is ${shortAddr(backup)}.` },
               ...(fastLane ? [{ icon: FastForward, text: "Your backup can approve a big transfer to send it right away." }] : []),
+              {
+                icon: Send,
+                text: `Heads up: a big send from MetaMask or any other wallet app is scheduled too. Your wallet shows it as sent, but the recipient only gets it after ${fmtDuration(+s.hold * DAY)}${fastLane ? " (or when your backup approves)" : ""}. Don't use big sends for payments that must arrive now.`,
+              },
               { icon: LifeBuoy, text: `In an emergency, everything moves to your backup and stays locked for ${fmtDuration(+s.lock * DAY)}.` },
               { icon: ShieldCheck, text: `Turning protection off or loosening any setting takes ${fmtDuration(+s.off * DAY)}.` },
             ].map(({ icon: Icon, text }) => (

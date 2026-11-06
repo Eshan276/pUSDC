@@ -17,7 +17,7 @@ set -a; source .env.testnet; set +a
 
 RPC=${RPC:-https://sepolia.base.org}
 USDC=0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be     # demo USDC (anyone can mint)
-PUSDC=0xCabC4016cc24d2A2509552378dE6e232241295a3
+PUSDC=${PUSDC:-0xCabC4016cc24d2A2509552378dE6e232241295a3}
 ROUTER=0x1689E7B1F10000AE47eBfE339a4f69dECd19F602   # Uniswap V2 router, Base Sepolia
 EXPLORER=https://sepolia.basescan.org
 
@@ -89,8 +89,11 @@ run)
   note "Small swap, 500 pUSDC:"; swap $ALICE_KEY 500000000 $PUSDC $USDC $ALICE
   note "Large swap, 10,000 pUSDC:"
   expect_fail --private-key $ALICE_KEY $ROUTER 'swapExactTokensForTokens(uint256,uint256,address[],address,uint256)' 10000000000 0 "[$PUSDC,$USDC]" $ALICE "$(deadline)"
-  note "Large plain transfer, 10,000 pUSDC:"
-  expect_fail --private-key $ALICE_KEY $PUSDC 'transfer(address,uint256)' $ATTACKER 10000000000
+  note "Large plain send, 10,000 pUSDC (like MetaMask 'Send'): scheduled instead of sent, then the backup cancels it:"
+  send --private-key $ALICE_KEY $PUSDC 'transfer(address,uint256)' $ATTACKER 10000000000
+  ID=$(call $PUSDC 'queuedTransferCount()(uint256)')
+  note "Scheduled as #$ID; reserved $(usd "$(call $PUSDC 'reservedOf(address)(uint256)' $ALICE)") pUSDC"
+  send --private-key $BACKUP_KEY $PUSDC 'cancelTransfer(uint256)' "$ID"
 
   say "d. Attacker (alice's stolen key) queues everything to themselves; backup cancels"
   ALL=$(call $PUSDC 'availableBalanceOf(address)(uint256)' $ALICE)

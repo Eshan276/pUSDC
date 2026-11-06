@@ -10,7 +10,7 @@ const points = [
   {
     icon: Hourglass,
     title: "Big transfers wait their turn",
-    body: "Anything larger is scheduled for later. If it wasn't you, your backup wallet cancels it.",
+    body: "Anything larger is scheduled for later, even if you press Send in MetaMask. If it wasn't you, your backup wallet cancels it.",
   },
   {
     icon: LifeBuoy,

@@ -174,7 +174,9 @@ function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Addre
         </div>
         <Progress value={d.dailyLimit > 0n ? Number((d.dailyRemaining * 100n) / d.dailyLimit) : 0} label="Daily spending left" />
         <p className="text-xs text-muted-foreground">
-          {used > 0n ? "Resets 24 hours after your first payment of the day." : "Your full daily limit is available."}
+          {used > 0n ? "Resets 24 hours after your first payment of the day." : "Your full daily limit is available."} Sending more from
+          MetaMask or another app? It's scheduled automatically and arrives after {fmtDuration(d.holdWindow)}. It shows up under your
+          scheduled transfers.
         </p>
       </div>
 

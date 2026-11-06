@@ -7,8 +7,11 @@ Protected Token lets each holder switch on a public, on-chain "protected" flag f
 
 - Turning protection **on is instant**. Anything that **weakens** it (turning it off, changing the backup wallet,
   raising the daily limit, shortening the hold window) only applies after a delay the holder chose (at least 7 days).
-- Outgoing transfers above a **daily limit** revert. Large moves are **queued** and wait out a hold window, during
-  which a pre-registered **backup wallet** can cancel them.
+- Outgoing transfers above a **daily limit** don't go out instantly. A big **Send from any wallet app (e.g. MetaMask)** is
+  automatically **scheduled**: it shows as sent, but the recipient gets it after a hold window, during which a pre-registered
+  **backup wallet** can cancel it. Contracts pulling funds (`transferFrom`: DEXs, approvals) get a clean revert instead,
+  so no protocol is ever fooled into thinking tokens arrived.
+- Optional **fast lane**: the backup can approve a scheduled transfer to send it right away.
 - **`stress()`** sweeps the whole balance to the backup wallet and locks it there for a set time.
 - **Incoming transfers are always instant.** Unprotected accounts behave exactly like a plain ERC-20, so it works with
   unmodified Uniswap.
@@ -31,6 +34,11 @@ Protected Token lets each holder switch on a public, on-chain "protected" flag f
 | Key **already** leaked **before** you turn protection on | Not protected: protection isn't retroactive, and the attacker could even front-run `protect()` with their own backup. Set up protection on a **fresh wallet before funding it**. The app warns about this, and flags a backup you never chose. |
 | Leaked key, attacker waits for you to switch protection off | Once it's off, whoever holds the key has full control. Don't switch off a possibly-compromised wallet: **move funds to a new wallet** instead (the app has a button for it), or use the fast lane so you never need to switch off. |
 | Both your main key and backup key compromised | Not protected. The backup is the root of trust. |
+
+**Big sends from wallet apps.** A plain `transfer()` sent directly by a normal wallet over the daily limit is scheduled (it returns
+`true`, and the standard `Transfer` event only appears when it executes). Recipients get it after the hold, so don't use big sends
+for payments that must arrive now. `transferFrom` and calls from contracts or code-bearing accounts (incl. EIP-7702) revert,
+because a contract might treat `true` as "tokens moved".
 
 **Fast lane (opt-in).** Your backup can approve a scheduled transfer to send it immediately, so big payments don't require
 switching protection off. An attacker holding only your main key can't approve. It's off by default because if one person
