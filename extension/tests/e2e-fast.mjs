@@ -3,12 +3,28 @@
 import { BACKUP, THIEF, cast, deployDemoToken, start } from "./harness.mjs";
 const USDC = "0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be";
 let PUSDC;
-const h = await start({ beforeBuild: () => { PUSDC = deployDemoToken(USDC); console.log("demo token:", PUSDC); return { VITE_PUSDC: PUSDC }; } });
+// Built with the default (day-based) token: the demo token is switched on from inside the wallet.
+const h = await start({ beforeBuild: () => { PUSDC = deployDemoToken(USDC); console.log("demo token:", PUSDC); return {}; } });
 const bal = (w) => cast(`call ${PUSDC} "balanceOf(address)(uint256)" ${w}`).split(" ")[0];
 const warp = (s) => { cast(`rpc evm_increaseTime ${s}`); cast("rpc evm_mine"); };
 const { page, T, step } = h;
 
 const me = await h.onboard();
+await step("default token shows days; switching to the demo token in More → Demo token shows minutes", async () => {
+  await page.getByRole("button", { name: "More" }).click();
+  await page.getByText("Demo token").first().click();
+  await page.getByText("Days", { exact: true }).waitFor();
+  await page.getByLabel("Token address").fill("0x0000000000000000000000000000000000000001");
+  await page.getByRole("button", { name: "Use this token" }).click();
+  await page.getByText("isn't a Protected Wallet token").waitFor();
+  await page.getByLabel("Token address").fill(PUSDC);
+  await Promise.all([page.waitForEvent("load"), page.getByRole("button", { name: "Use this token" }).click()]);
+  const nav = page.getByRole("navigation", { name: "Sections" });
+  await nav.getByRole("button", { name: "More" }).click();
+  await page.getByText("Demo token").first().click();
+  await page.getByText("Minutes (demo)").waitFor();
+  await nav.getByRole("button", { name: "Wallet" }).click();
+});
 await step("one-click funding", async () => { await page.getByRole("button", { name: "Get 10,000 test pUSDC" }).click(); await T("10,000 pUSDC added"); });
 await step("wizard offers minutes and the Fast demo preset", async () => {
   await page.getByRole("button", { name: "Set up protection" }).first().click();
