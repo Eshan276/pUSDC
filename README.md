@@ -61,10 +61,19 @@ contract and offers a "Quick demo" preset on minute-level deployments.
 
 | Network | Contract | Address |
 | --- | --- | --- |
-| Base Sepolia (84532) | pUSDC (`ProtectedWrapper` around Circle's test USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`) | [`0x4045cB3524304aB25409E39C4170A76762228B2B`](https://sepolia.basescan.org/address/0x4045cB3524304aB25409E39C4170A76762228B2B) |
-| Base Sepolia (84532) | Demo USDC: **test token, anyone can mint**, 6 decimals (`script/DeployTestUSDC.s.sol`) | [`0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be`](https://sepolia.basescan.org/address/0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be) |
-| Base Sepolia (84532) | Demo pUSDC (`ProtectedWrapper` around the demo USDC) | [`0xCabC4016cc24d2A2509552378dE6e232241295a3`](https://sepolia.basescan.org/address/0xCabC4016cc24d2A2509552378dE6e232241295a3) |
-| Base Sepolia (84532) | Uniswap V2 pool, demo pUSDC/USDC, seeded with 1M + 1M | [`0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd`](https://sepolia.basescan.org/address/0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd) |
+| Base Sepolia (84532) | **pUSDC, current** (`ProtectedWrapper` around the demo USDC; fast lane, auto-scheduled wallet sends, minute-level minimums 60s/120s/60s) | [`0x033B36fE536e97d312Ece98750A0302eF31CBBab`](https://sepolia.basescan.org/address/0x033B36fE536e97d312Ece98750A0302eF31CBBab) |
+| Base Sepolia (84532) | Demo USDC: **test token, anyone can mint**, 6 decimals | [`0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be`](https://sepolia.basescan.org/address/0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be) |
+| Base Sepolia (84532) | Uniswap V2 pool, current pUSDC/USDC, seeded with 1M + 1M | [`0xfab232073e4008372C0454990978e8d8E882Aa88`](https://sepolia.basescan.org/address/0xfab232073e4008372C0454990978e8d8E882Aa88) |
+
+<details><summary>Retired earlier deployments (first contract version, before fast lane and minute minimums)</summary>
+
+| Contract | Address |
+| --- | --- |
+| pUSDC around Circle's test USDC | [`0x4045cB3524304aB25409E39C4170A76762228B2B`](https://sepolia.basescan.org/address/0x4045cB3524304aB25409E39C4170A76762228B2B) |
+| pUSDC around the demo USDC | [`0xCabC4016cc24d2A2509552378dE6e232241295a3`](https://sepolia.basescan.org/address/0xCabC4016cc24d2A2509552378dE6e232241295a3) |
+| Uniswap V2 pool for it | [`0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd`](https://sepolia.basescan.org/address/0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd) |
+
+</details>
 
 ## Build and test
 

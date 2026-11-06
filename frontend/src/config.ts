@@ -6,7 +6,7 @@ import type { Address } from "viem";
 export const EXPLORER = "https://sepolia.basescan.org";
 
 /** Demo deployment on Base Sepolia (see the repo README). The demo USDC can be minted by anyone. */
-export const PUSDC = ((import.meta.env.VITE_PUSDC as string | undefined) ?? "0xCabC4016cc24d2A2509552378dE6e232241295a3") as Address;
+export const PUSDC = ((import.meta.env.VITE_PUSDC as string | undefined) ?? "0x033B36fE536e97d312Ece98750A0302eF31CBBab") as Address;
 export const USDC = ((import.meta.env.VITE_USDC as string | undefined) ?? "0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be") as Address;
 export const DECIMALS = 6;
 export const IS_TESTNET = true;

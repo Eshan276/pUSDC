@@ -4,9 +4,9 @@
 #   ./script/testnet-demo.sh status     balances and protection state
 #   ./script/testnet-demo.sh setup      mint demo USDC to alice, wrap, approve, give backup gas
 #   ./script/testnet-demo.sh run        steps b-d: swap, protect, small/large swap, queued drain + cancel,
-#                                       then queue a legit transfer that unlocks after the 1-day hold
+#                                       then queue a legit transfer that unlocks after the 2-minute hold
 #   ./script/testnet-demo.sh execute ID run a queued transfer once its hold has passed
-#   ./script/testnet-demo.sh stress     backup sweeps alice's funds to itself (locked 1 day)
+#   ./script/testnet-demo.sh stress     backup sweeps alice's funds to itself (locked 2 minutes)
 #   ./script/testnet-demo.sh unlock     after the lock: backup unwraps to USDC
 #
 # Wallets come from .env.testnet (gitignored): ALICE(_KEY), BACKUP(_KEY), ATTACKER.
@@ -17,7 +17,7 @@ set -a; source .env.testnet; set +a
 
 RPC=${RPC:-https://sepolia.base.org}
 USDC=0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be     # demo USDC (anyone can mint)
-PUSDC=${PUSDC:-0xCabC4016cc24d2A2509552378dE6e232241295a3}
+PUSDC=${PUSDC:-0x033B36fE536e97d312Ece98750A0302eF31CBBab}
 ROUTER=0x1689E7B1F10000AE47eBfE339a4f69dECd19F602   # Uniswap V2 router, Base Sepolia
 EXPLORER=https://sepolia.basescan.org
 
@@ -83,8 +83,8 @@ run)
   say "b. Unprotected: alice swaps 20,000 pUSDC -> USDC on Uniswap (instant)"
   swap $ALICE_KEY 20000000000 $PUSDC $USDC $ALICE
 
-  say "c. Alice turns protection ON: 1,000/day limit, 1-day hold, 7-day off-delay, 1-day lock"
-  send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64,bool)' $BACKUP 1000000000 86400 604800 86400 false
+  say "c. Alice turns protection ON: 1,000/day limit, 2-minute hold, 5-minute off-delay, 2-minute lock"
+  send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64,bool)' $BACKUP 1000000000 120 300 120 false
   note "isProtected(alice) = $(call $PUSDC 'isProtected(address)(bool)' $ALICE)"
   note "Small swap, 500 pUSDC:"; swap $ALICE_KEY 500000000 $PUSDC $USDC $ALICE
   note "Large swap, 10,000 pUSDC:"
@@ -119,7 +119,7 @@ execute)
   status ;;
 
 stress)
-  say "f. STRESS: backup sweeps alice's whole balance to itself, locked for 1 day"
+  say "f. STRESS: backup sweeps alice's whole balance to itself, locked for 2 minutes"
   send --private-key $BACKUP_KEY $PUSDC 'stress(address)' $ALICE
   B=$(pbal $BACKUP); L=$(cast call --rpc-url "$RPC" $PUSDC 'lockOf(address)(uint256,uint64)' $BACKUP | num | head -1)
   note "Backup tries to unwrap the locked funds:"
