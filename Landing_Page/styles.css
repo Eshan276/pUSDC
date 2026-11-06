@@ -4,23 +4,17 @@
    Fonts are self-hosted (brand.md: no third-party requests). */
 
 @font-face {
-  font-family: "Newsreader";
-  src: url("fonts/newsreader-latin-opsz-normal.woff2") format("woff2");
-  font-weight: 200 800;
+  font-family: "DM Sans";
+  src: url("fonts/dm-sans-latin-opsz-normal.woff2") format("woff2");
+  font-weight: 100 1000;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Newsreader";
-  src: url("fonts/newsreader-latin-opsz-italic.woff2") format("woff2");
-  font-weight: 200 800;
+  font-family: "DM Sans";
+  src: url("fonts/dm-sans-latin-opsz-italic.woff2") format("woff2");
+  font-weight: 100 1000;
   font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Plus Jakarta Sans";
-  src: url("fonts/plus-jakarta-sans-latin-wght-normal.woff2") format("woff2");
-  font-weight: 200 800;
   font-display: swap;
 }
 @font-face {
@@ -55,8 +49,8 @@
   --amber-soft: oklch(0.3 0.05 70);
   --danger: oklch(0.68 0.17 27); /* emergency only */
 
-  --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
-  --sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --serif: "DM Sans", ui-sans-serif, system-ui, sans-serif; /* display face: light, tightly tracked DM Sans */
+  --sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --gutter: clamp(16px, 4vw, 56px);
@@ -411,11 +405,10 @@ a.text-link:hover {
 }
 .display {
   font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 300;
   font-size: clamp(40px, 5.8vw, 84px);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  font-variation-settings: "opsz" 72;
+  line-height: 1.05;
+  letter-spacing: -0.028em;
   text-wrap: pretty;
 }
 .accent {
@@ -490,11 +483,10 @@ em.accent {
 }
 .h2 {
   font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 300;
   font-size: clamp(34px, 4.6vw, 64px);
   line-height: 1.05;
   letter-spacing: -0.028em;
-  font-variation-settings: "opsz" 60;
   text-wrap: balance;
 }
 .h3 {
@@ -759,11 +751,10 @@ em.accent {
 }
 .stack-title {
   font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 300;
   font-size: clamp(56px, 7.5vw, 104px);
   line-height: 0.95;
   letter-spacing: -0.035em;
-  font-variation-settings: "opsz" 72;
 }
 .stack-body {
   padding-top: 8px;
@@ -1011,11 +1002,10 @@ input[type="range"]:active::-webkit-slider-thumb {
 }
 .display-dark {
   font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 300;
   font-size: clamp(40px, 5.2vw, 76px);
   line-height: 1.02;
   letter-spacing: -0.03em;
-  font-variation-settings: "opsz" 72;
   text-wrap: balance;
 }
 .light-copy {
@@ -1424,11 +1414,11 @@ input[type="range"]:active::-webkit-slider-thumb {
 .nav .mark { width: 28px; height: 28px; color: var(--cream-ink); }
 .nav .brand { gap: 9px; }
 .nav .brand-text {
-  font-family: var(--serif);
-  font-size: 25px;
-  font-weight: 500;
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   white-space: nowrap;
 }
 .stats {
@@ -1452,9 +1442,9 @@ input[type="range"]:active::-webkit-slider-thumb {
 .nav-right { display: flex; align-items: center; gap: 30px; justify-self: end; }
 .nav .nav-links { gap: 28px; }
 .nav .nav-links a {
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 500;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
   color: var(--cream-ink);
@@ -1469,8 +1459,8 @@ input[type="range"]:active::-webkit-slider-thumb {
   border-radius: 4px;
   background: oklch(0.13 0.02 255);
   color: #fff;
-  font-family: var(--mono);
-  font-size: 13px;
+  font-family: var(--sans);
+  font-size: 14.5px;
   font-weight: 500;
   transition: background-color 0.2s;
 }
@@ -1490,3 +1480,5 @@ input[type="range"]:active::-webkit-slider-thumb {
   .hero { padding-top: 104px; }
 }
 @media (max-width: 380px) { .nav .brand-text { display: inline; font-size: 18px; } }
+.hero em.accent { white-space: nowrap; }
+@media (max-width: 520px) { .hero em.accent { white-space: normal; } }
