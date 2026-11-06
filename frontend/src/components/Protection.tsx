@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { formatUnits, getAddress, type Address } from "viem";
-import { ArrowLeft, ArrowRight, Check, Clock, LifeBuoy, Pencil, ShieldCheck, Wallet, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Clock, FastForward, KeyRound, LifeBuoy, PackageOpen, Pencil, ShieldCheck, TriangleAlert, Wallet, Zap } from "lucide-react";
 import { pusdcAbi } from "../abi";
 import { BOUNDS, DAY, DECIMALS, IS_TESTNET, Param, PUSDC, type ParamId } from "../config";
 import { addressProblem, fmtAmount, fmtCountdown, fmtDate, fmtDuration, parseAmount, shortAddr } from "../lib/format";
-import { isStricter, type ProtectionData } from "../lib/useProtection";
+import { isStricter, rememberBackup, type ProtectionData } from "../lib/useProtection";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Field, HoldButton, Notice, inputClass, useNow } from "./ui";
 
@@ -28,12 +28,12 @@ function limitError(v: string) {
 const limitUnits = (v: string) => (v.trim() === "0" ? 0n : parseAmount(v) ?? 0n);
 
 export function ProtectionPanel({ d, address }: { d: ProtectionData; address: Address }) {
-  if (!d.protected) return <SetupWizard address={address} />;
+  if (!d.protected) return <SetupWizard address={address} hasFunds={d.balance > 0n} />;
   return (
     <div className="grid gap-6 lg:grid-cols-5">
       <div className="space-y-6 lg:col-span-3">
         <SettingsCard d={d} address={address} />
-        <TurnOffCard d={d} />
+        <TurnOffCard d={d} address={address} />
       </div>
       <div className="lg:col-span-2">
         <EmergencyCard d={d} address={address} />
@@ -44,13 +44,14 @@ export function ProtectionPanel({ d, address }: { d: ProtectionData; address: Ad
 
 /* ───────────────────────── setup wizard ───────────────────────── */
 
-function SetupWizard({ address }: { address: Address }) {
+function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolean }) {
   const { run, busy } = useTx();
   const [step, setStep] = useState(0);
   const [backup, setBackup] = useState("");
   const [owns, setOwns] = useState(false);
   const [preset, setPreset] = useState("everyday");
   const [custom, setCustom] = useState<Settings>(PRESETS[2].s);
+  const [fastLane, setFastLane] = useState(false);
   const [tried, setTried] = useState(false);
   const s = preset === "custom" ? custom : PRESETS.find((x) => x.id === preset)!.s;
 
@@ -76,12 +77,19 @@ function SetupWizard({ address }: { address: Address }) {
     setTried(false);
     setStep(step + 1);
   };
-  const turnOn = () =>
-    run(
+  const turnOn = async () => {
+    // Remember the backup we chose, so the dashboard can flag a hijacked setup.
+    rememberBackup(address, getAddress(backup));
+    await run(
       "protect",
-      { ...p, functionName: "protect", args: [getAddress(backup), limitUnits(s.limit), BigInt(+s.hold * DAY), BigInt(+s.off * DAY), BigInt(+s.lock * DAY)] },
+      {
+        ...p,
+        functionName: "protect",
+        args: [getAddress(backup), limitUnits(s.limit), BigInt(+s.hold * DAY), BigInt(+s.off * DAY), BigInt(+s.lock * DAY), fastLane],
+      },
       "You're protected 🎉",
     );
+  };
 
   const steps = ["Backup wallet", "Your limits", "Review"];
   return (
@@ -110,6 +118,10 @@ function SetupWizard({ address }: { address: Address }) {
           <Field label="Backup wallet address" htmlFor="backup" error={tried ? backupError : undefined} hint="Tip: don't use a wallet on this same device. If this one is stolen, that one might be too.">
             <input id="backup" autoComplete="off" spellCheck={false} placeholder="0x…" value={backup} onChange={(e) => setBackup(e.target.value.trim())} className={`${inputClass} font-mono text-sm`} />
           </Field>
+          <Notice tone={hasFunds ? "warning" : "info"} icon={<KeyRound />} title="Best on a fresh wallet">
+            Protection guards against theft from now on. If anyone might already have this wallet's key, set up protection on a brand-new
+            wallet instead, then move your funds in.{hasFunds ? " This wallet already holds funds, so be sure its key has never been exposed." : ""}
+          </Notice>
           <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl bg-muted p-4 text-sm">
             <input type="checkbox" checked={owns} onChange={(e) => setOwns(e.target.checked)} className="mt-0.5 size-5 accent-[var(--primary)]" />
             <span>I control this wallet and its recovery phrase is saved somewhere safe.</span>
@@ -155,6 +167,16 @@ function SetupWizard({ address }: { address: Address }) {
               </Field>
             </div>
           )}
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border border-border p-4 text-sm">
+            <input type="checkbox" checked={fastLane} onChange={(e) => setFastLane(e.target.checked)} className="mt-0.5 size-5 accent-[var(--primary)]" />
+            <span className="space-y-1">
+              <span className="block font-semibold">Let my backup approve big transfers instantly (optional)</span>
+              <span className="block text-muted-foreground">
+                Skip the wait when your backup says yes. Only turn this on if your backup is held by someone else, or kept somewhere you
+                can't reach quickly. Someone forcing you could otherwise make you approve with both.
+              </span>
+            </span>
+          </label>
           {IS_TESTNET && preset !== "custom" && (
             <p className="text-sm text-muted-foreground">Trying it out? Pick Custom with a 1-day wait, so you can watch a scheduled transfer go through tomorrow.</p>
           )}
@@ -169,6 +191,7 @@ function SetupWizard({ address }: { address: Address }) {
               { icon: Zap, text: limitUnits(s.limit) > 0n ? `Up to ${fmtAmount(limitUnits(s.limit))} pUSDC a day goes out instantly.` : "Every transfer waits. Nothing goes out instantly." },
               { icon: Clock, text: `Anything more waits ${fmtDuration(+s.hold * DAY)}. You or your backup can cancel it during that time.` },
               { icon: Wallet, text: `Your backup wallet is ${shortAddr(backup)}.` },
+              ...(fastLane ? [{ icon: FastForward, text: "Your backup can approve a big transfer to send it right away." }] : []),
               { icon: LifeBuoy, text: `In an emergency, everything moves to your backup and stays locked for ${fmtDuration(+s.lock * DAY)}.` },
               { icon: ShieldCheck, text: `Turning protection off or loosening any setting takes ${fmtDuration(+s.off * DAY)}.` },
             ].map(({ icon: Icon, text }) => (
@@ -223,6 +246,7 @@ function SettingsCard({ d, address }: { d: ProtectionData; address: Address }) {
         {ROWS.map((r) => (
           <ParamRow key={r.param} row={r} current={current[r.param]} d={d} />
         ))}
+        <FastLaneRow d={d} />
         <BackupRow d={d} address={address} />
       </ul>
     </Card>
@@ -296,6 +320,47 @@ function ParamRow({ row, current, d }: { row: (typeof ROWS)[number]; current: bi
   );
 }
 
+function FastLaneRow({ d }: { d: ProtectionData }) {
+  const { run, busy } = useTx();
+  const pending = d.fastLaneAt > 0;
+  return (
+    <li className="py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold">Backup can approve instantly</p>
+          <p className="text-sm text-muted-foreground">
+            {d.fastLane
+              ? "On: your backup can send a scheduled transfer right away."
+              : pending
+                ? `Turning on ${fmtDate(d.fastLaneAt)}.`
+                : "Off: big transfers always wait."}
+          </p>
+        </div>
+        {d.fastLane || pending ? (
+          <Button
+            variant="secondary"
+            loading={busy === "lane"}
+            onClick={() => run("lane", { ...p, functionName: "setFastLane", args: [false] }, pending ? "Cancelled" : "Turned off. Big transfers always wait now")}
+          >
+            {pending ? "Cancel" : "Turn off"}
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            loading={busy === "lane"}
+            onClick={() => run("lane", { ...p, functionName: "setFastLane", args: [true] }, `Scheduled: turns on ${fmtDate(Math.floor(Date.now() / 1000) + d.offDelay)}`)}
+          >
+            Turn on…
+          </Button>
+        )}
+      </div>
+      {!d.fastLane && !pending && (
+        <p className="mt-2 text-xs text-muted-foreground">Turning this on is a loosening, so it waits {fmtDuration(d.offDelay)}. Turning it off is instant.</p>
+      )}
+    </li>
+  );
+}
+
 function BackupRow({ d, address }: { d: ProtectionData; address: Address }) {
   const { run, busy } = useTx();
   const [editing, setEditing] = useState(false);
@@ -303,6 +368,7 @@ function BackupRow({ d, address }: { d: ProtectionData; address: Address }) {
   const err = addressProblem(v) ?? (v.toLowerCase() === address.toLowerCase() ? "Your backup has to be a different wallet." : v.toLowerCase() === d.backup.toLowerCase() ? "That's already your backup." : undefined);
   const save = async () => {
     if (err) return;
+    rememberBackup(address, getAddress(v));
     if (await run("backup", { ...p, functionName: "requestBackupChange", args: [getAddress(v)] }, `Backup change scheduled for ${fmtDate(Math.floor(Date.now() / 1000) + d.offDelay)}`)) setEditing(false);
   };
   return (
@@ -345,7 +411,7 @@ function BackupRow({ d, address }: { d: ProtectionData; address: Address }) {
 
 /* ───────────────────────── turn off + emergency ───────────────────────── */
 
-function TurnOffCard({ d }: { d: ProtectionData }) {
+function TurnOffCard({ d, address }: { d: ProtectionData; address: Address }) {
   const { run, busy } = useTx();
   const now = useNow();
   const [confirm, setConfirm] = useState(false);
@@ -367,6 +433,11 @@ function TurnOffCard({ d }: { d: ProtectionData }) {
       <p className="text-sm text-muted-foreground">
         This takes {fmtDuration(d.offDelay)}, so nobody can switch it off and drain you in a hurry. You can change your mind before then.
       </p>
+      <Notice tone="warning" icon={<TriangleAlert />} title="Might someone else have this wallet's key?">
+        Then don't turn protection off: whoever holds a copy of the key could take everything the moment it ends. Move your funds to a
+        new wallet instead. They stay protected on the way.
+      </Notice>
+      <MoveOut d={d} address={address} />
       {!confirm ? (
         <Button variant="secondary" onClick={() => setConfirm(true)}>
           Turn off protection…
@@ -409,5 +480,55 @@ function EmergencyCard({ d, address }: { d: ProtectionData; address: Address }) 
       </HoldButton>
       <p className="text-xs text-muted-foreground">Press and hold for 1.5 seconds. Your backup wallet can also do this for you from the "I'm a backup" tab.</p>
     </Card>
+  );
+}
+
+/** Safer than switching protection off: send everything to a fresh wallet (scheduled if above the daily limit). */
+function MoveOut({ d, address }: { d: ProtectionData; address: Address }) {
+  const { run, busy } = useTx();
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState("");
+  const [tried, setTried] = useState(false);
+  const err = addressProblem(to, "Enter your new wallet's address.") ?? (to.toLowerCase() === address.toLowerCase() ? "That's this same wallet." : to.toLowerCase() === d.backup.toLowerCase() ? "Use a new wallet, not your backup." : undefined);
+  const instant = d.available <= d.dailyRemaining;
+  if (!open)
+    return (
+      <Button variant="secondary" onClick={() => setOpen(true)} disabled={d.available === 0n}>
+        <PackageOpen className="size-4" aria-hidden /> Move everything to a new wallet
+      </Button>
+    );
+  return (
+    <form
+      className="space-y-3 rounded-2xl bg-muted p-4"
+      noValidate
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setTried(true);
+        if (err) return;
+        const ok = await run(
+          "moveout",
+          { ...p, functionName: instant ? "transfer" : "queueTransfer", args: [getAddress(to), d.available] },
+          instant ? "Moved to your new wallet" : `Move scheduled for ${fmtDate(Math.floor(Date.now() / 1000) + d.holdWindow)}`,
+        );
+        if (ok) setOpen(false);
+      }}
+    >
+      <Field label="New wallet address" htmlFor="moveout" error={tried ? err : undefined} hint="Ideally a brand-new wallet. Turn protection on there before or right after the funds arrive.">
+        <input id="moveout" autoComplete="off" spellCheck={false} placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} className={`${inputClass} font-mono text-sm`} />
+      </Field>
+      <p className="text-sm">
+        {instant
+          ? `${fmtAmount(d.available)} pUSDC is within today's limit, so it moves instantly.`
+          : `${fmtAmount(d.available)} pUSDC is above today's limit, so the move waits ${fmtDuration(d.holdWindow)}${d.fastLane ? ", or your backup can approve it right away" : ""}. Your backup can still stop it if it wasn't you.`}
+      </p>
+      <div className="flex gap-2">
+        <Button type="submit" loading={busy === "moveout"}>
+          {instant ? "Move now" : "Schedule the move"}
+        </Button>
+        <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
+          Never mind
+        </Button>
+      </div>
+    </form>
   );
 }

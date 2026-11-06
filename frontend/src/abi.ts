@@ -175,6 +175,19 @@ export const pusdcAbi = [
   },
   {
     "type": "function",
+    "name": "approveTransfer",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "availableBalanceOf",
     "inputs": [
       {
@@ -675,6 +688,11 @@ export const pusdcAbi = [
         "name": "lockDuration",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "fastLane",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
@@ -728,6 +746,16 @@ export const pusdcAbi = [
           },
           {
             "name": "flagOffAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "fastLane",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "fastLaneAt",
             "type": "uint64",
             "internalType": "uint64"
           }
@@ -811,6 +839,19 @@ export const pusdcAbi = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setFastLane",
+    "inputs": [
+      {
+        "name": "enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1100,6 +1141,44 @@ export const pusdcAbi = [
   },
   {
     "type": "event",
+    "name": "FastLaneChangeRequested",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "effectiveAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FastLaneUpdated",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "FlagOff",
     "inputs": [
       {
@@ -1182,6 +1261,12 @@ export const pusdcAbi = [
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      },
+      {
+        "name": "fastLane",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -1319,6 +1404,25 @@ export const pusdcAbi = [
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TransferApproved",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "backup",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1592,6 +1696,17 @@ export const pusdcAbi = [
         "name": "remaining",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FastLaneOff",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },

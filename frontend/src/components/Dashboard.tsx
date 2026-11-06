@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Address } from "viem";
 import { useWatchAsset } from "wagmi";
-import { ArrowRight, Clock, Droplets, Lock, PlusCircle, RefreshCw, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
+import { ArrowRight, Clock, Droplets, FastForward, Lock, PlusCircle, RefreshCw, ShieldAlert, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
 import { pusdcAbi, usdcAbi } from "../abi";
 import { DECIMALS, IS_TESTNET, PUSDC, USDC } from "../config";
 import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, shortAddr, toUnits } from "../lib/format";
-import { useProtection, type ProtectionData } from "../lib/useProtection";
+import { knownBackups, useProtection, type ProtectionData } from "../lib/useProtection";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Notice, Progress, Skeleton, useNow } from "./ui";
 import { SendPanel, WrapPanel } from "./Panels";
@@ -55,7 +55,7 @@ export function Dashboard({ address }: { address: Address }) {
   return (
     <div className="space-y-6 pt-4">
       <div className="grid gap-6 lg:grid-cols-5">
-        <StatusCard d={data} onSetup={() => setTab("protection")} />
+        <StatusCard d={data} address={address} onSetup={() => setTab("protection")} />
         <BalanceCard d={data} address={address} onAdd={() => setTab("wrap")} />
       </div>
       <Tabs tab={tab} setTab={setTab} />
@@ -104,7 +104,7 @@ function Tabs({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
   );
 }
 
-function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) {
+function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Address; onSetup: () => void }) {
   const now = useNow();
   const { run, busy } = useTx();
   const p = { address: PUSDC, abi: pusdcAbi } as const;
@@ -131,6 +131,10 @@ function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) 
     );
 
   const used = d.dailyLimit - d.dailyRemaining;
+  // If this browser set up protection but the on-chain backup is one we never chose, someone else holding
+  // this key probably front-ran the setup with their own backup.
+  const mine = knownBackups(address);
+  const hijacked = mine.length > 0 && !mine.includes(d.backup.toLowerCase());
   const changes = Object.entries(d.pendingChanges).filter(([, c]) => c && c.effectiveAt > now);
   const labels = ["Daily limit", "Waiting time for big transfers", "Waiting time to loosen settings", "Emergency lock"];
   const show = (i: number, v: bigint) => (i === 0 ? `${fmtAmount(v)} pUSDC` : fmtDuration(Number(v)));
@@ -144,10 +148,21 @@ function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) 
         <div className="space-y-1">
           <h1 className="text-xl font-bold">You're protected</h1>
           <p className="text-sm text-muted-foreground">
-            Bigger transfers wait {fmtDuration(d.holdWindow)}, and your backup {shortAddr(d.backup)} can stop them.
+            Bigger transfers wait {fmtDuration(d.holdWindow)}, and your backup {shortAddr(d.backup)} can stop them
+            {d.fastLane ? " or approve them instantly" : ""}.
           </p>
         </div>
       </div>
+
+      {hijacked && (
+        <Notice tone="danger" icon={<ShieldAlert />} title="This backup isn't one you chose">
+          <p>
+            The backup on record is {shortAddr(d.backup)}, which you never entered here. Someone else may have this wallet's key and set up
+            protection first. Don't use the emergency button (it would send funds to their backup) and don't add more funds. Move what you can
+            to a brand-new wallet.
+          </p>
+        </Notice>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -180,6 +195,15 @@ function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) 
           </Button>
         </Notice>
       ))}
+
+      {d.fastLaneAt > now && (
+        <Notice tone="warning" icon={<FastForward />} title={`Instant backup approval turns on in ${fmtCountdown(d.fastLaneAt - now)}`}>
+          <p>After that, your backup can send big transfers right away. Didn't do this? Cancel it.</p>
+          <Button variant="secondary" className="mt-2" loading={busy === "lane"} onClick={() => run("lane", { ...p, functionName: "setFastLane", args: [false] }, "Cancelled")}>
+            Cancel change
+          </Button>
+        </Notice>
+      )}
 
       {d.pendingBackup && d.pendingBackup.effectiveAt > now && (
         <Notice tone="warning" icon={<Clock />} title={`Backup wallet changes to ${shortAddr(d.pendingBackup.backup)}`}>

@@ -32,7 +32,9 @@ contract DeployTestUSDC is Script {
         // The broadcasting wallet (--account/--private-key). Plain msg.sender is forge's default sender unless
         // --sender is also passed.
         (, address me,) = vm.readCallers();
-        MockERC20 tusdc = new MockERC20("USD Coin", "USDC", 6);
+        // Reuse an existing demo USDC (USDC=0x...) so balances carry over, or deploy a fresh one.
+        address existing = vm.envOr("USDC", address(0));
+        MockERC20 tusdc = existing != address(0) ? MockERC20(existing) : new MockERC20("USD Coin", "USDC", 6);
         ProtectedWrapper pusdc = new ProtectedWrapper(tusdc, "Protected USDC", "pUSDC");
 
         tusdc.mint(me, 2 * POOL_SIDE + 2 * DEPLOYER_EXTRA);

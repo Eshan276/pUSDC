@@ -57,6 +57,7 @@ function RouteNotice({ r, d, verb }: { r: ReturnType<typeof route>; d: Protectio
       <Notice tone="warning" icon={<Hourglass />} title={`Scheduled: ${verb.toLowerCase()} on ${fmtDate(r.at)}`}>
         This is more than today's limit ({fmtAmount(d.dailyRemaining)} left), so it waits {fmtDuration(d.holdWindow)}. If it wasn't you,
         you or your backup can cancel it before then.
+        {d.fastLane && " Your backup can also approve it to send it right away."}
         {d.dailyRemaining > 0n && ` Want it faster? Send ${fmtAmount(d.dailyRemaining)} now and the rest tomorrow.`}
       </Notice>
     );
@@ -115,7 +116,7 @@ export function SendPanel({ d, address }: { d: ProtectionData; address: Address 
         </form>
       </Card>
       <div className="lg:col-span-2">
-        <PendingList title="Your scheduled transfers" transfers={d.pending} loading={d.pendingLoading} role="owner" />
+        <PendingList title="Your scheduled transfers" transfers={d.pending} loading={d.pendingLoading} role="owner" fastLane={d.fastLane} />
       </div>
     </div>
   );
@@ -190,7 +191,7 @@ export function WrapPanel({ d }: { d: ProtectionData }) {
 }
 
 /** Scheduled (queued) transfers with countdowns. Owner and backup can cancel; anyone can complete a ready one. */
-export function PendingList({ title, transfers, loading, role }: { title: string; transfers: PendingTransfer[]; loading?: boolean; role: "owner" | "backup" }) {
+export function PendingList({ title, transfers, loading, role, fastLane }: { title: string; transfers: PendingTransfer[]; loading?: boolean; role: "owner" | "backup" | "watcher"; fastLane?: boolean }) {
   const now = useNow();
   const { run, busy } = useTx();
   return (
@@ -227,13 +228,24 @@ export function PendingList({ title, transfers, loading, role }: { title: string
                     <span className="rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-foreground tabular">{fmtCountdown(left)}</span>
                   )}
                 </div>
-                {!ready && <p className="text-xs text-muted-foreground">Can go through {fmtDate(t.executableAt)}</p>}
+                {!ready && (
+                  <p className="text-xs text-muted-foreground">
+                    Can go through {fmtDate(t.executableAt)}
+                    {fastLane && role === "owner" ? ", or sooner if your backup approves it" : ""}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
+                  {!ready && fastLane && role === "backup" && (
+                    <Button loading={busy === `ap${t.id}`} onClick={() => run(`ap${t.id}`, { ...p, functionName: "approveTransfer", args: [t.id] }, "Approved and sent")}>
+                      Approve now
+                    </Button>
+                  )}
                   {ready && (
                     <Button loading={busy === `ex${t.id}`} onClick={() => run(`ex${t.id}`, { ...p, functionName: "executeTransfer", args: [t.id] }, "Transfer completed")}>
                       Complete transfer
                     </Button>
                   )}
+                  {role !== "watcher" && (
                   <Button
                     variant={role === "backup" ? "danger" : "secondary"}
                     loading={busy === `cx${t.id}`}
@@ -241,6 +253,7 @@ export function PendingList({ title, transfers, loading, role }: { title: string
                   >
                     {role === "backup" ? "Stop this transfer" : "Cancel"}
                   </Button>
+                  )}
                   <a
                     href={`${EXPLORER}/address/${t.to}`}
                     target="_blank"
