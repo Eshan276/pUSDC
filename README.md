@@ -22,6 +22,12 @@ Protected Token lets each holder switch on a public, on-chain "protected" flag f
 | `src/ProtectedWrapper.sol` | 1:1 wrapper for an existing ERC-20 (pUSDC) |
 | `test/` | Unit tests, plus `DemoScenario.t.sol`, which runs the whole demo on a mainnet fork |
 
+## Deployments
+
+| Network | Contract | Address |
+| --- | --- | --- |
+| Base Sepolia (84532) | pUSDC (`ProtectedWrapper` around Circle's test USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`) | [`0x4045cB3524304aB25409E39C4170A76762228B2B`](https://sepolia.basescan.org/address/0x4045cB3524304aB25409E39C4170A76762228B2B) |
+
 ## Build and test
 
 ```sh
