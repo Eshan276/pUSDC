@@ -77,9 +77,13 @@ pragma solidity ^0.8.24;
  *     but already-queued transfers stay valid: they can still be executed after
  *     their hold, or cancelled by the owner or the last backup.
  *
- * 12. Bounds. Protocol minimums stop protection from being meaningless (a 0s
- *     hold or delay). Maximums stop a typo or a coerced user from freezing funds
- *     for decades. See the MIN_* and MAX_* constants.
+ * 12. Bounds. Minimums stop protection from being meaningless (a 0s hold or
+ *     delay). Maximums stop a typo or a coerced user from freezing funds for
+ *     decades. Maximums are constants. Minimums are set once in the constructor
+ *     (immutable, no admin): production deployments use the DEFAULT_MIN_*
+ *     values (1-day hold, 7-day off-delay, 1-day lock); a test/demo deployment
+ *     may use minutes so the whole flow can be shown live. Every duration is in
+ *     seconds, so minutes, hours and days all work.
  *
  * 13. Revert errors. For accounts with nothing reserved or locked, an
  *     over-balance transfer still reverts with OpenZeppelin's standard
@@ -119,12 +123,19 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     // ───────────────────────────── constants ─────────────────────────────
 
     uint64 public constant LIMIT_PERIOD = 1 days;
-    uint64 public constant MIN_OFF_DELAY = 7 days;
     uint64 public constant MAX_OFF_DELAY = 365 days;
-    uint64 public constant MIN_HOLD_WINDOW = 1 days;
     uint64 public constant MAX_HOLD_WINDOW = 30 days;
-    uint64 public constant MIN_LOCK_DURATION = 1 days;
     uint64 public constant MAX_LOCK_DURATION = 365 days;
+
+    /// @notice Recommended minimums for production deployments.
+    uint64 public constant DEFAULT_MIN_HOLD_WINDOW = 1 days;
+    uint64 public constant DEFAULT_MIN_OFF_DELAY = 7 days;
+    uint64 public constant DEFAULT_MIN_LOCK_DURATION = 1 days;
+
+    /// @notice This deployment's minimums (seconds), fixed at construction (design note 12).
+    uint64 public immutable MIN_HOLD_WINDOW;
+    uint64 public immutable MIN_OFF_DELAY;
+    uint64 public immutable MIN_LOCK_DURATION;
 
     // ─────────────────────────────── types ───────────────────────────────
 
@@ -137,6 +148,13 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     }
 
     uint256 private constant PARAM_COUNT = 4;
+
+    /// @notice Per-deployment minimum durations, in seconds.
+    struct Minimums {
+        uint64 holdWindow;
+        uint64 offDelay;
+        uint64 lockDuration;
+    }
 
     enum TransferStatus {
         None,
@@ -262,8 +280,20 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     error TransferNotPending(uint256 id);
     error HoldNotExpired(uint256 id, uint64 executableAt);
     error FastLaneOff(address account);
+    error InvalidMinimums();
 
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) ERC20Permit(name_) {}
+    constructor(string memory name_, string memory symbol_, Minimums memory mins)
+        ERC20(name_, symbol_)
+        ERC20Permit(name_)
+    {
+        if (
+            mins.holdWindow == 0 || mins.holdWindow > MAX_HOLD_WINDOW || mins.offDelay == 0
+                || mins.offDelay > MAX_OFF_DELAY || mins.lockDuration == 0 || mins.lockDuration > MAX_LOCK_DURATION
+        ) revert InvalidMinimums();
+        MIN_HOLD_WINDOW = mins.holdWindow;
+        MIN_OFF_DELAY = mins.offDelay;
+        MIN_LOCK_DURATION = mins.lockDuration;
+    }
 
     // ═════════════════════════ protection settings ═════════════════════════
 
@@ -729,7 +759,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         if (backup == address(0) || backup == account || backup == address(this)) revert InvalidBackup(backup);
     }
 
-    function _checkParam(Param param, uint256 value) private pure {
+    function _checkParam(Param param, uint256 value) private view {
         if (param == Param.DailyLimit) return;
         (uint64 lo, uint64 hi) = param == Param.HoldWindow
             ? (MIN_HOLD_WINDOW, MAX_HOLD_WINDOW)

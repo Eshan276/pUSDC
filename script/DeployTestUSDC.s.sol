@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {MockERC20} from "../test/mocks/MockERC20.sol";
+import {ProtectedERC20} from "../src/ProtectedERC20.sol";
 import {ProtectedWrapper} from "../src/ProtectedWrapper.sol";
 
 interface IUniswapV2RouterLike {
@@ -35,7 +36,13 @@ contract DeployTestUSDC is Script {
         // Reuse an existing demo USDC (USDC=0x...) so balances carry over, or deploy a fresh one.
         address existing = vm.envOr("USDC", address(0));
         MockERC20 tusdc = existing != address(0) ? MockERC20(existing) : new MockERC20("USD Coin", "USDC", 6);
-        ProtectedWrapper pusdc = new ProtectedWrapper(tusdc, "Protected USDC", "pUSDC");
+        // Demo minimums in minutes so the whole flow can be shown live (override in seconds via env).
+        ProtectedERC20.Minimums memory mins = ProtectedERC20.Minimums({
+            holdWindow: uint64(vm.envOr("MIN_HOLD", uint256(1 minutes))),
+            offDelay: uint64(vm.envOr("MIN_OFF_DELAY", uint256(2 minutes))),
+            lockDuration: uint64(vm.envOr("MIN_LOCK", uint256(1 minutes)))
+        });
+        ProtectedWrapper pusdc = new ProtectedWrapper(tusdc, "Protected USDC", "pUSDC", mins);
 
         tusdc.mint(me, 2 * POOL_SIDE + 2 * DEPLOYER_EXTRA);
         tusdc.approve(address(pusdc), type(uint256).max);
@@ -48,6 +55,12 @@ contract DeployTestUSDC is Script {
 
         console2.log("test USDC (anyone can mint(address,uint256)):", address(tusdc));
         console2.log("pUSDC:", address(pusdc));
+        console2.log(
+            "minimums (seconds) hold/offDelay/lock:",
+            pusdc.MIN_HOLD_WINDOW(),
+            pusdc.MIN_OFF_DELAY(),
+            pusdc.MIN_LOCK_DURATION()
+        );
         console2.log(
             "Uniswap V2 pair:", IUniswapV2FactoryLike(ROUTER.factory()).getPair(address(pusdc), address(tusdc))
         );

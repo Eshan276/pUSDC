@@ -26,7 +26,9 @@ contract ProtectedWrapper is ProtectedERC20 {
 
     error InvalidUnderlying();
 
-    constructor(IERC20Metadata underlying_, string memory name_, string memory symbol_) ProtectedERC20(name_, symbol_) {
+    constructor(IERC20Metadata underlying_, string memory name_, string memory symbol_, Minimums memory mins)
+        ProtectedERC20(name_, symbol_, mins)
+    {
         if (address(underlying_) == address(0)) revert InvalidUnderlying();
         underlying = IERC20(address(underlying_));
         _decimals = underlying_.decimals();

@@ -36,7 +36,9 @@ contract DemoScenarioTest is Test {
         if (bytes(rpc).length == 0) return;
         vm.createSelectFork(rpc);
         forked = true;
-        pusdc = new ProtectedWrapper(IERC20Metadata(address(USDC)), "Protected USDC", "pUSDC");
+        pusdc = new ProtectedWrapper(
+            IERC20Metadata(address(USDC)), "Protected USDC", "pUSDC", ProtectedERC20.Minimums(1 days, 7 days, 1 days)
+        );
         // makeAddr("alice") has a publicly known key, and on mainnet someone has given it an EIP-7702 delegation.
         // Clear it so alice is a plain wallet (code-bearing accounts never get auto-scheduled sends; see note 15).
         vm.etch(alice, "");

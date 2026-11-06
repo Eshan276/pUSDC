@@ -70,7 +70,7 @@ cast chain-id --rpc-url "$RPC" >/dev/null 2>&1 || { echo "No node at $RPC. Start
 say "Setup: deploy pUSDC on the fork"
 forge build --silent
 PUSDC=$(forge create src/ProtectedWrapper.sol:ProtectedWrapper --rpc-url "$RPC" --private-key $ALICE_KEY --broadcast \
-        --constructor-args $USDC "Protected USDC" pUSDC | awk '/Deployed to:/{print $3}')
+        --constructor-args $USDC "Protected USDC" pUSDC "(86400,604800,86400)" | awk '/Deployed to:/{print $3}')
 note "pUSDC deployed at $PUSDC"
 
 say "a. Whale wraps 1M USDC, seeds a pUSDC/USDC Uniswap V2 pool, sends alice 100k USDC; alice wraps it"
