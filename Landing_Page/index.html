@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protected USDC</title>
+    <meta
+      name="description"
+      content="Protected USDC wraps USDC 1:1. Everyday payments stay instant; big transfers wait, and your backup wallet can stop theft."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0e0d0c" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="fonts/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <!-- ───────────── Navigation ───────────── -->
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="#top" aria-label="Protected USDC home">
+          <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><use href="#mark" /></svg>
+          <span class="brand-text">Protected<br />USDC</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#controls">Controls</a></li>
+          <li><a href="#try">Try it</a></li>
+        </ul>
+        <div class="nav-actions">
+          <a class="btn btn-accent" href="#try" data-app-link><span class="sq" aria-hidden="true"></span>Launch app</a>
+          <a class="icon-link" href="https://github.com/Eshan276/pUSDC" aria-label="Source code on GitHub" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#gh" /></svg>
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main">
+      <!-- ───────────── Hero ───────────── -->
+      <section class="hero" id="top">
+        <div class="hero-media" aria-hidden="true">
+          <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="media/earth-poster.jpg">
+            <source src="media/earth.mp4" type="video/mp4" />
+          </video>
+          <div class="halftone"></div>
+          <div class="hero-fade"></div>
+        </div>
+
+        <div class="hero-inner">
+          <p class="eyebrow reveal"><span class="pulse" aria-hidden="true"></span>Live on Base Sepolia</p>
+          <h1 class="display reveal">
+            Your dollars move instantly,<br />
+            until someone tries to <em class="accent">take them all at once</em>
+          </h1>
+          <p class="lede reveal">
+            Protected USDC wraps USDC 1:1 and adds the safety net crypto never had: a delay you control, a backup wallet that
+            can cancel, and an emergency button.
+          </p>
+          <div class="cta-row reveal">
+            <a class="btn btn-accent btn-lg" href="#try" data-app-link><span class="sq" aria-hidden="true"></span>Protect your USDC</a>
+            <a class="btn btn-ghost btn-lg" href="#film"><span class="tri" aria-hidden="true"></span>Watch the film</a>
+          </div>
+        </div>
+
+        <div class="facts reveal" aria-label="Key facts">
+          <div class="marquee">
+            <ul class="marquee-track">
+              <li>1:1 USDC wrapper</li>
+              <li>Built on Base</li>
+              <li>Works with Uniswap</li>
+              <li>ERC-20 + Permit</li>
+              <li>Incoming always instant</li>
+              <li>Open source · MIT</li>
+              <li>ETHGlobal Mumbai 2026</li>
+            </ul>
+            <ul class="marquee-track" aria-hidden="true">
+              <li>1:1 USDC wrapper</li>
+              <li>Built on Base</li>
+              <li>Works with Uniswap</li>
+              <li>ERC-20 + Permit</li>
+              <li>Incoming always instant</li>
+              <li>Open source · MIT</li>
+              <li>ETHGlobal Mumbai 2026</li>
+            </ul>
+          </div>
+          <a class="text-link" href="https://github.com/Eshan276/pUSDC/tree/main/src" target="_blank" rel="noopener"
+            ><span class="sq sq-dim" aria-hidden="true"></span>Read the contracts</a
+          >
+        </div>
+      </section>
+
+      <!-- ───────────── Film ───────────── -->
+      <section class="section film-section" id="film" aria-label="Product film">
+        <div class="frame film reveal">
+          <span class="corner tl" aria-hidden="true"></span><span class="corner tr" aria-hidden="true"></span>
+          <span class="corner bl" aria-hidden="true"></span><span class="corner br" aria-hidden="true"></span>
+          <video class="film-video" muted loop playsinline preload="none" poster="media/pusdc-film-poster.jpg">
+            <source src="media/pusdc-film.mp4" type="video/mp4" />
+          </video>
+          <button class="btn btn-accent play-btn" type="button" aria-label="Play the film with sound">
+            <span class="tri tri-dark" aria-hidden="true"></span><span class="play-label">play film</span>
+          </button>
+          <p class="film-cap mono" aria-hidden="true">pUSDC — 00:10</p>
+        </div>
+      </section>
+
+      <!-- ───────────── Problem ───────────── -->
+      <section class="section" aria-labelledby="problem-title">
+        <h2 class="h2 center reveal" id="problem-title">Crypto still has no undo button</h2>
+        <div class="grid-3">
+          <article class="tile reveal">
+            <div class="tile-art" aria-hidden="true">
+              <svg viewBox="0 0 160 120"><use href="#art-key" /></svg>
+            </div>
+            <p class="tile-lead">A leaked seed phrase can empty a wallet in a single transaction.</p>
+            <p class="tile-sub">By the time you notice, the money has already left, and no one can send it back.</p>
+          </article>
+          <article class="tile reveal">
+            <div class="tile-art" aria-hidden="true">
+              <svg viewBox="0 0 160 120"><use href="#art-wrench" /></svg>
+            </div>
+            <p class="tile-lead">Someone can force you to hand it over, in person.</p>
+            <p class="tile-sub">A hardware wallet can't help when the attacker is standing next to you. Instant is the problem.</p>
+          </article>
+          <article class="tile reveal">
+            <div class="tile-art" aria-hidden="true">
+              <svg viewBox="0 0 160 120"><use href="#art-vault" /></svg>
+            </div>
+            <p class="tile-lead">Most safety nets ask you to give your keys to someone else.</p>
+            <p class="tile-sub">Self-custody shouldn't mean choosing between control and a way to recover.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ───────────── How it works (split cards) ───────────── -->
+      <section class="section" id="how" aria-labelledby="how-title">
+        <header class="section-head reveal">
+          <h2 class="h2" id="how-title">Protection that only gets stronger</h2>
+          <p class="sub">
+            Turning protection on takes one transaction. Loosening it takes a week or more, so a thief can't just switch it off.
+          </p>
+        </header>
+
+        <article class="split reveal">
+          <div class="split-copy cream">
+            <h3 class="h3">Protected accounts</h3>
+            <ul class="squares">
+              <li>Spend up to your own daily limit instantly, exactly like USDC.</li>
+              <li>Bigger transfers wait out a hold window you pick, from 1 to 30 days.</li>
+              <li>Your backup wallet can cancel any waiting transfer before it lands.</li>
+            </ul>
+            <a class="btn btn-dark" href="#controls"><span class="sq" aria-hidden="true"></span>See the controls</a>
+          </div>
+          <div class="split-visual card-video-wrap" aria-hidden="true">
+            <video class="card-video" muted loop playsinline preload="none" poster="media/card-protected-poster.jpg">
+              <source src="media/card-protected.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </article>
+
+        <article class="split split-rev reveal">
+          <div class="split-visual card-video-wrap" aria-hidden="true">
+            <video class="card-video" muted loop playsinline preload="none" poster="media/card-pusdc-poster.jpg">
+              <source src="media/card-pusdc.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="split-copy accent-bg">
+            <h3 class="h3">pUSDC</h3>
+            <ul class="squares">
+              <li>Wraps USDC 1:1. Unwrap any time and get the same USDC back.</li>
+              <li>Unprotected accounts behave like a plain ERC-20, so pools and wallets just work.</li>
+              <li>Incoming transfers always arrive instantly, protected or not.</li>
+            </ul>
+            <a
+              class="btn btn-dark"
+              href="https://sepolia.basescan.org/address/0xCabC4016cc24d2A2509552378dE6e232241295a3"
+              target="_blank"
+              rel="noopener"
+              ><span class="sq" aria-hidden="true"></span>View on Basescan</a
+            >
+          </div>
+        </article>
+      </section>
+
+      <!-- ───────────── Controls (stacking cards) ───────────── -->
+      <section class="section" id="controls" aria-labelledby="controls-title">
+        <h2 class="h2 center reveal" id="controls-title">Four controls. All of them yours.</h2>
+        <div class="stack">
+          <article class="stack-card s1">
+            <h3 class="stack-title">Spend</h3>
+            <div class="stack-body">
+              <span class="rule"></span>
+              <p>Payments under your daily limit settle instantly. Swaps and transfers work as they always have.</p>
+            </div>
+          </article>
+          <article class="stack-card s2">
+            <h3 class="stack-title">Wait</h3>
+            <div class="stack-body">
+              <span class="rule"></span>
+              <p>Anything larger is scheduled and waits out your hold window. You always see when it will land.</p>
+            </div>
+          </article>
+          <article class="stack-card s3">
+            <h3 class="stack-title">Cancel</h3>
+            <div class="stack-body">
+              <span class="rule"></span>
+              <p>Your backup wallet can stop any scheduled transfer at any point before it goes through.</p>
+            </div>
+          </article>
+          <article class="stack-card s4">
+            <h3 class="stack-title">Rescue</h3>
+            <div class="stack-body">
+              <span class="rule"></span>
+              <p>One emergency action moves your whole balance to your backup wallet and locks it there, even under pressure.</p>
+            </div>
+          </article>
+        </div>
+        <div class="center reveal">
+          <a class="btn btn-accent btn-lg" href="#try" data-app-link><span class="sq" aria-hidden="true"></span>Set up protection</a>
+        </div>
+      </section>
+
+      <!-- ───────────── Simulator ───────────── -->
+      <section class="section sim-section" aria-labelledby="sim-title">
+        <div class="sim-intro reveal">
+          <h2 class="h3" id="sim-title">See it before you connect</h2>
+          <p class="sim-lead">Pick a daily limit and a hold window, then try a transfer. This is exactly what a thief would run into.</p>
+          <p class="text-link static"><span class="sq" aria-hidden="true"></span>Nothing here touches a wallet</p>
+        </div>
+
+        <form class="sim reveal" id="sim" aria-describedby="sim-title" onsubmit="return false">
+          <div class="field">
+            <div class="field-top">
+              <label for="limit" class="mono label">Daily limit</label>
+              <output class="val" id="limit-out" for="limit">1,000</output>
+            </div>
+            <input type="range" id="limit" min="100" max="10000" step="100" value="1000" />
+          </div>
+
+          <fieldset class="field">
+            <legend class="mono label">Hold window</legend>
+            <div class="seg" role="radiogroup">
+              <label><input type="radio" name="hold" value="1" /><span>1 day</span></label>
+              <label><input type="radio" name="hold" value="3" checked /><span>3 days</span></label>
+              <label><input type="radio" name="hold" value="7" /><span>7 days</span></label>
+              <label><input type="radio" name="hold" value="30" /><span>30 days</span></label>
+            </div>
+          </fieldset>
+
+          <div class="field">
+            <div class="field-top">
+              <label for="amount" class="mono label">Transfer</label>
+              <output class="val" id="amount-out" for="amount">250</output>
+            </div>
+            <input type="range" id="amount" min="10" max="50000" step="10" value="250" />
+          </div>
+
+          <div class="verdict" id="verdict" aria-live="polite">
+            <span class="verdict-tag mono" id="verdict-tag">Instant</span>
+            <p class="verdict-title" id="verdict-title">Goes through right away</p>
+            <p class="verdict-sub" id="verdict-sub">It's under your daily limit, so it works just like USDC.</p>
+          </div>
+        </form>
+      </section>
+
+      <!-- ───────────── Try it (light) ───────────── -->
+      <section class="light" id="try" aria-labelledby="try-title">
+        <div class="light-inner">
+          <div class="light-copy reveal">
+            <h2 class="display-dark" id="try-title">Self-custody, with a safety net</h2>
+            <p>Try the whole flow on Base Sepolia with free test USDC. No sign-up, no backend, just a browser wallet.</p>
+            <ol class="steps">
+              <li><span class="mono n">01</span>Get test USDC from the built-in faucet.</li>
+              <li><span class="mono n">02</span>Wrap it into pUSDC, 1:1.</li>
+              <li><span class="mono n">03</span>Choose a backup wallet and turn protection on.</li>
+            </ol>
+            <a class="btn btn-dark btn-lg" href="#" data-app-link><span class="sq sq-accent" aria-hidden="true"></span>Launch the app</a>
+          </div>
+
+          <div class="contracts reveal" aria-label="Contract addresses on Base Sepolia">
+            <p class="mono label">Contracts · Base Sepolia (84532)</p>
+            <div class="addr">
+              <div>
+                <p class="addr-name">pUSDC <span class="tag">demo</span></p>
+                <a class="mono addr-val" href="https://sepolia.basescan.org/address/0xCabC4016cc24d2A2509552378dE6e232241295a3" target="_blank" rel="noopener">0xCabC4016cc24d2A2509552378dE6e232241295a3</a>
+              </div>
+              <button class="copy" type="button" data-copy="0xCabC4016cc24d2A2509552378dE6e232241295a3">Copy</button>
+            </div>
+            <div class="addr">
+              <div>
+                <p class="addr-name">Test USDC <span class="tag">anyone can mint</span></p>
+                <a class="mono addr-val" href="https://sepolia.basescan.org/address/0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be" target="_blank" rel="noopener">0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be</a>
+              </div>
+              <button class="copy" type="button" data-copy="0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be">Copy</button>
+            </div>
+            <div class="addr">
+              <div>
+                <p class="addr-name">Uniswap V2 pool <span class="tag">pUSDC / USDC</span></p>
+                <a class="mono addr-val" href="https://sepolia.basescan.org/address/0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd" target="_blank" rel="noopener">0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd</a>
+              </div>
+              <button class="copy" type="button" data-copy="0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd">Copy</button>
+            </div>
+            <div class="addr">
+              <div>
+                <p class="addr-name">pUSDC <span class="tag">wraps Circle test USDC</span></p>
+                <a class="mono addr-val" href="https://sepolia.basescan.org/address/0x4045cB3524304aB25409E39C4170A76762228B2B" target="_blank" rel="noopener">0x4045cB3524304aB25409E39C4170A76762228B2B</a>
+              </div>
+              <button class="copy" type="button" data-copy="0x4045cB3524304aB25409E39C4170A76762228B2B">Copy</button>
+            </div>
+            <p class="fineprint">Testnet only. The contracts are unaudited hackathon code. Please don't use them with real funds.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ───────────── Footer ───────────── -->
+    <footer class="footer">
+      <div class="footer-inner">
+        <a class="footer-brand" href="#top" aria-label="Back to top">
+          <svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><use href="#mark" /></svg>
+          <span>Protected<br />USDC</span>
+        </a>
+        <div class="footer-cols">
+          <nav aria-label="Product">
+            <p class="col-h">Product</p>
+            <ul class="squares sm">
+              <li><a href="#how">How it works</a></li>
+              <li><a href="#controls">Controls</a></li>
+              <li><a href="#try">Try it</a></li>
+            </ul>
+          </nav>
+          <nav aria-label="Developers">
+            <p class="col-h">Developers</p>
+            <ul class="squares sm">
+              <li><a href="https://github.com/Eshan276/pUSDC" target="_blank" rel="noopener">GitHub</a></li>
+              <li><a href="https://github.com/Eshan276/pUSDC/blob/main/src/ProtectedERC20.sol" target="_blank" rel="noopener">ProtectedERC20.sol</a></li>
+              <li><a href="https://github.com/Eshan276/pUSDC#try-the-demo-in-a-terminal" target="_blank" rel="noopener">Run the demo</a></li>
+            </ul>
+          </nav>
+          <nav aria-label="Network">
+            <p class="col-h">Network</p>
+            <ul class="squares sm">
+              <li><a href="https://sepolia.basescan.org/address/0xCabC4016cc24d2A2509552378dE6e232241295a3" target="_blank" rel="noopener">pUSDC on Basescan</a></li>
+              <li><a href="https://sepolia.basescan.org/address/0xbf2bD7B3cd08859c924d14d6dcbB9dB5dC5091cd" target="_blank" rel="noopener">Uniswap pool</a></li>
+              <li><a href="https://github.com/Eshan276/pUSDC/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></li>
+            </ul>
+          </nav>
+        </div>
+        <div class="footer-legal">
+          <p class="legal-h">Built at ETHGlobal Mumbai 2026</p>
+          <p>
+            Protected USDC (pUSDC) is an open-source wrapper around USDC. It is not issued by, endorsed by, or affiliated with
+            Circle. The contracts are unaudited and deployed to Base Sepolia testnet only. Nothing on this page is financial advice.
+          </p>
+          <p class="mono legal-meta">© 2026 Protected Token contributors · no trackers, no cookies</p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ───────────── SVG sprites ───────────── -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <!-- Brand mark: a "p" carved from a coin, with a shield notch in the bowl -->
+        <symbol id="mark" viewBox="0 0 40 40">
+          <mask id="mark-cut">
+            <rect width="40" height="40" fill="#fff" />
+            <path d="M13.5 30.5V11.5h7.25a6.25 6.25 0 0 1 0 12.5H13.5" fill="none" stroke="#000" stroke-width="4.2" stroke-linejoin="round" />
+            <path d="M20.6 15.6l2.6 1.1v1.9c0 1.6-1.1 2.7-2.6 3.2-1.5-.5-2.6-1.6-2.6-3.2v-1.9z" fill="#000" />
+          </mask>
+          <circle cx="20" cy="20" r="19" fill="currentColor" mask="url(#mark-cut)" />
+        </symbol>
+        <symbol id="gh" viewBox="0 0 24 24">
+          <path
+            fill="currentColor"
+            d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.3-.52-1.47.11-3.06 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.06.74.8 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"
+          />
+        </symbol>
+
+        <radialGradient id="glow" cx="50%" cy="55%" r="55%">
+          <stop offset="0" style="stop-color:var(--accent)" stop-opacity=".22" />
+          <stop offset="1" style="stop-color:var(--accent)" stop-opacity="0" />
+        </radialGradient>
+        <pattern id="dotgrid" width="6" height="6" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r=".7" style="fill:var(--fg)" opacity=".18" />
+        </pattern>
+
+        <symbol id="art-key" viewBox="0 0 160 120">
+          <ellipse cx="80" cy="66" rx="70" ry="48" fill="url(#glow)" />
+          <rect x="10" y="10" width="140" height="100" fill="url(#dotgrid)" />
+          <g fill="none" style="stroke:var(--fg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="56" cy="58" r="18" />
+            <circle cx="56" cy="58" r="6" />
+            <path d="M72 66l50 22M108 82l-4 10M118 86l-3 8" />
+          </g>
+          <g style="fill:var(--accent)">
+            <rect x="120" y="30" width="5" height="5" /><rect x="130" y="40" width="5" height="5" opacity=".6" />
+            <rect x="140" y="50" width="5" height="5" opacity=".3" />
+          </g>
+        </symbol>
+
+        <symbol id="art-wrench" viewBox="0 0 160 120">
+          <ellipse cx="80" cy="66" rx="70" ry="48" fill="url(#glow)" />
+          <rect x="10" y="10" width="140" height="100" fill="url(#dotgrid)" />
+          <g fill="none" style="stroke:var(--fg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M101 28a18 18 0 0 0-22 23L45 85a7 7 0 1 0 10 10l34-34a18 18 0 0 0 23-22l-11 11-9-2-2-9z" />
+          </g>
+          <g style="fill:var(--accent)">
+            <rect x="28" y="30" width="5" height="5" /><rect x="38" y="22" width="5" height="5" opacity=".6" />
+            <rect x="48" y="14" width="5" height="5" opacity=".3" />
+          </g>
+        </symbol>
+
+        <symbol id="art-vault" viewBox="0 0 160 120">
+          <ellipse cx="80" cy="66" rx="70" ry="48" fill="url(#glow)" />
+          <rect x="10" y="10" width="140" height="100" fill="url(#dotgrid)" />
+          <g fill="none" style="stroke:var(--fg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="48" y="26" width="64" height="64" rx="6" />
+            <circle cx="80" cy="58" r="16" />
+            <path d="M80 42v6M80 68v6M64 58h6M90 58h6M54 90v6M106 90v6" />
+          </g>
+          <g style="fill:var(--accent)">
+            <rect x="77.5" y="55.5" width="5" height="5" />
+          </g>
+        </symbol>
+      </defs>
+    </svg>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>
