@@ -40,14 +40,7 @@ for (const el of document.querySelectorAll(".reveal")) {
   revealIO.observe(el);
 }
 
-// Only decode background videos while they're on screen
-const hero = document.querySelector(".hero-video");
-if (reduceMotion) {
-  hero.removeAttribute("autoplay");
-  hero.pause();
-} else {
-  new IntersectionObserver(([e]) => (e.isIntersecting ? hero.play().catch(() => {}) : hero.pause())).observe(hero);
-}
+// The hero background is the ASCII canvas in ascii.js (it pauses itself when off screen).
 
 // Film: silent preview loop when visible; the button restarts it with sound and controls
 const film = document.querySelector(".film");

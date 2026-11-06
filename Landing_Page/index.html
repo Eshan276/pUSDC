@@ -9,7 +9,7 @@
       content="Protected USDC wraps USDC 1:1. Everyday payments stay instant; big transfers wait, and your backup wallet can stop theft."
     />
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0e0d0c" />
+    <meta name="theme-color" content="#0b0f19" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
@@ -46,10 +46,7 @@
       <!-- ───────────── Hero ───────────── -->
       <section class="hero" id="top">
         <div class="hero-media" aria-hidden="true">
-          <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="media/earth-poster.jpg">
-            <source src="media/earth.mp4" type="video/mp4" />
-          </video>
-          <div class="halftone"></div>
+          <canvas class="hero-ascii"></canvas>
           <div class="hero-fade"></div>
         </div>
 
@@ -433,5 +430,6 @@
     </svg>
 
     <script src="main.js" defer></script>
+    <script src="ascii.js" defer></script>
   </body>
 </html>
