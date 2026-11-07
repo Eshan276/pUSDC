@@ -3,6 +3,7 @@ import type { Address } from "viem";
 import { call } from "./api";
 import { chainNow, readBounds, readProtection, type Protection } from "../shared/read";
 import { DEFAULT_BOUNDS, type Bounds } from "../shared/presets";
+import { mergeActivity, readOnchainActivity, type ActivityItem, type LocalAction } from "../shared/activity";
 import type { WalletState } from "../shared/messages";
 
 export function useWalletState() {
@@ -44,4 +45,23 @@ export function useChainNow(): number {
     return () => clearInterval(t);
   }, []);
   return now;
+}
+
+/** Recent activity for an account: on-chain transfers merged with what this wallet recorded. Refreshes every 20 seconds. */
+export function useActivity(address?: Address, every = 20_000) {
+  const [items, setItems] = useState<ActivityItem[]>();
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    if (!address) return;
+    const [chain, stored] = await Promise.all([readOnchainActivity(address), chrome.storage.local.get("activity")]);
+    setItems(mergeActivity(chain, ((stored.activity as LocalAction[] | undefined) ?? [])));
+    setLoading(false);
+  }, [address]);
+  useEffect(() => {
+    setItems(undefined); setLoading(true);
+    void load();
+    const t = setInterval(load, every);
+    return () => clearInterval(t);
+  }, [load, every]);
+  return { items, loading, reload: load };
 }

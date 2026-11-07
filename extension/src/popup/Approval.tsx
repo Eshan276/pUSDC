@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Clock, Globe, ShieldAlert } from "lucide-react";
 import { decodeFunctionData, hexToBigInt, type Address, type Hex } from "viem";
 import { pusdcAbi } from "@abi";
 import { Button, Card, Notice, Skeleton } from "@ui/ui";
 import { PUSDC } from "../shared/chain";
+import { estimateFee } from "../shared/fee";
+import { FeeLine } from "./wallet";
 import { fmtAmount, fmtDuration, shortAddr } from "../shared/format";
 import type { WalletState } from "../shared/messages";
 import { call } from "./api";
@@ -26,6 +28,14 @@ export function Approval({ id, state, onDone }: { id: string; state: WalletState
   const { data } = useProtection(me);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string>();
+  const [fee, setFee] = useState<bigint>();
+  const txp = a?.kind === "tx" ? (a.params[0] as TxParams) : undefined;
+  useEffect(() => {
+    if (!txp?.to) return;
+    let live = true;
+    void estimateFee({ from: me, to: txp.to, data: txp.data, value: txp.value ? hexToBigInt(txp.value) : undefined }).then((f) => live && setFee(f));
+    return () => { live = false; };
+  }, [a?.id, me]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function answer(approved: boolean, override?: { to: Address; data: Hex }) {
     setBusy(true); setErr(undefined);
@@ -83,6 +93,7 @@ export function Approval({ id, state, onDone }: { id: string; state: WalletState
             {value > 0n && <p>Also sends {Number(value) / 1e18} ETH</p>}
             {!dec && tx.data && tx.data !== "0x" && <p className="break-all font-mono text-xs text-muted-foreground">{tx.data.slice(0, 74)}{tx.data.length > 74 && "…"}</p>}
           </div>
+          <FeeLine fee={fee} />
           {overLimit && !tooLarge && (
             <Notice tone="warning" icon={<Clock />} title="Over your daily limit">
               The token will schedule this automatically instead of sending it now. It will wait {fmtDuration(data.holdWindow)}, and you or your backup can stop it before then.
