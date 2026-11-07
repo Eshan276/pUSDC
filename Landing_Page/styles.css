@@ -1718,3 +1718,24 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
 .hero-inner { top: calc(20.8svh + 30px); }
 .ascii { top: calc(17.3svh + 62px); }
 @media (max-width: 900px) { .hero-inner { top: 96px; } .ascii { top: auto; } }
+
+/* ───── Hero button and note, larger ───── */
+.hero-cta { width: calc(126 * var(--k)); height: calc(41 * var(--k)); min-width: 118px; min-height: 38px; font-size: max(13.5px, calc(14 * var(--k))); border-radius: 3px; }
+.hero-note { margin-top: calc(20 * var(--k)); font-size: max(11px, calc(11.5 * var(--k))); }
+
+/* "Get Extension" is wider than "Launch App": size to the text */
+.hero-cta { width: auto; padding: 0 calc(24 * var(--k)); min-width: 0; white-space: nowrap; }
+.btn-launch { white-space: nowrap; }
+
+/* Narrow phones: keep logo, GitHub icon and "Get Extension" on one row */
+@media (max-width: 520px) {
+  .nav { padding: 0 12px; gap: 8px; }
+  .nav .brand { gap: 6px; }
+  .nav .mark { width: 22px; height: 22px; }
+  .nav .brand-text { font-size: 15.5px; }
+  .nav-right { gap: 10px; }
+  .nav .icon-link { width: 30px; height: 30px; margin: 0; }
+  .nav .icon-link svg { width: 21px; height: 21px; }
+  .btn-launch { height: 32px; padding: 0 11px; font-size: 12px; }
+}
+@media (max-width: 350px) { .nav .brand-text { display: none; } }

@@ -6,11 +6,22 @@
  */
 const APP_URL = "http://localhost:5173";
 
+/**
+ * Where "Get Extension" goes. The wallet extension lives in /extension (build it with `npm run build`, then load
+ * extension/dist from chrome://extensions). Point this at the Chrome Web Store listing once there is one.
+ */
+const EXTENSION_URL = "https://github.com/Eshan276/pUSDC/tree/main/extension";
+
 document.documentElement.classList.add("js");
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const fmt = new Intl.NumberFormat("en-US");
 
 // App links
+for (const a of document.querySelectorAll("[data-ext-link]")) {
+  a.href = EXTENSION_URL;
+  a.target = "_blank";
+  a.rel = "noopener";
+}
 for (const a of document.querySelectorAll("[data-app-link]")) {
   a.href = APP_URL;
   a.target = "_blank";
