@@ -6,6 +6,7 @@ import { pusdcAbi, usdcAbi } from "../abi";
 import { DECIMALS, IS_TESTNET, PUSDC, SCHEDULER, USDC } from "../config";
 import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, shortAddr, toUnits } from "../lib/format";
 import { knownBackups, useProtection, type ProtectionData } from "../lib/useProtection";
+import { useAnonStatus } from "../lib/anonRpc";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Notice, Progress, Skeleton, useNow } from "./ui";
 import { SendPanel, WrapPanel } from "./Panels";
@@ -292,8 +293,14 @@ function BalanceCard({ d, address, onAdd }: { d: ProtectionData; address: Addres
 }
 
 function DashboardSkeleton() {
+  const anon = useAnonStatus();
   return (
     <div className="space-y-6 pt-4" aria-busy="true" aria-label="Loading your account">
+      {anon === "connecting" && (
+        <p className="text-center text-sm text-muted-foreground" role="status">
+          Connecting privately through the Nox mixnet. The first load takes about 15 seconds.
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-5">
         <Skeleton className="h-56 lg:col-span-3" />
         <Skeleton className="h-56 lg:col-span-2" />

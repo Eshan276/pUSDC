@@ -2,6 +2,7 @@ import { createConfig, http } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 import { injected, mock } from "wagmi/connectors";
 import type { Address } from "viem";
+import { privateFetch } from "./lib/anonRpc";
 
 export const EXPLORER = "https://sepolia.basescan.org";
 
@@ -23,7 +24,7 @@ export const DAY = 86_400;
 export const Param = { DailyLimit: 0, HoldWindow: 1, OffDelay: 2, LockDuration: 3 } as const;
 export type ParamId = (typeof Param)[keyof typeof Param];
 
-const RPC_URL = (import.meta.env.VITE_RPC_URL as string | undefined) ?? "https://sepolia.base.org";
+export const RPC_URL = (import.meta.env.VITE_RPC_URL as string | undefined) ?? "https://sepolia.base.org";
 // Wallet-side requests (e.g. the dev test-mode connector) use the chain's own RPC, so keep it in sync.
 export const CHAIN = { ...baseSepolia, rpcUrls: { default: { http: [RPC_URL] } } } as const;
 
@@ -38,7 +39,8 @@ export const TEST_MODE = !!ACT_AS;
 export const config = createConfig({
   chains: [CHAIN],
   connectors: ACT_AS ? [mock({ accounts: [ACT_AS], features: { reconnect: true } }), injected()] : [injected()],
-  transports: { [CHAIN.id]: http(RPC_URL) },
+  // App reads go through anon-rpc (Nox mixnet) by default; see lib/anonRpc.ts.
+  transports: { [CHAIN.id]: http(RPC_URL, { fetchFn: privateFetch, batch: true }) },
 });
 
 declare module "wagmi" {

@@ -89,6 +89,26 @@ hooked and wrong pools, delivery without a swap, the fast lane, refunds, and a t
 pUSDC/USDC pool with liquidity concentrated within ±1% of 1.00, so a 15,000 swap costs about 0.1%.
 Developer feedback is in [`FEEDBACK.md`](FEEDBACK.md).
 
+## Private reads with anon-rpc ([`frontend/src/lib/anonRpc.ts`](frontend/src/lib/anonRpc.ts))
+
+The app reads the chain through [anon-rpc](https://github.com/ethereum/anon-rpc) **by default**, using the **Nox** mixnet
+worker (Sphinx packets through entry, mix and exit nodes; TLS to the RPC terminates inside the sandboxed worker). It plugs in
+as viem's `fetchFn`, so every app read (balances, protection state, scheduled transfers, watched wallets) goes through it.
+
+**Why it matters for this project:** the "I'm a backup" view looks up the wallet you protect. Over a normal RPC, the provider
+learns *this IP watches that wallet*, which links your backup to your main wallet. That's exactly what a wrench attacker
+would want to know. Through the mixnet, the RPC provider can't tell who asked.
+
+- Verified in a headless browser against live Base Sepolia: the page made **no direct requests to the RPC**. The only
+  outside requests were the one-time specifier read (bootstrap) and the hash-checked worker bundle download.
+- The first load takes about 15–20 s while the mixnet connects (shown as "Connecting privately…"); then reads take 1–3 s each.
+- The header shows the status ("Private connection" / "Connecting privately…" / "Standard connection"). If the mixnet fails,
+  the app falls back to a normal connection **and says so** in a banner with "Try private again". Users can also turn it off.
+- Limits: this covers the app's own reads. Your wallet extension still sends transactions, and does its own lookups, through
+  its own RPC provider. The dev test mode (local anvil) can't be anonymized and uses a normal connection.
+- We also tried the Nym and Tor (demo gateway) workers. From our test environment, neither connected (no gateway / no Tor
+  directory within 3 minutes), so we chose Nox.
+
 ## Deployments
 
 | Network | Contract | Address |
