@@ -1660,3 +1660,10 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
 @media (max-width: 1200px) { .stats li:nth-child(2) { display: none; } }
 @media (max-width: 1040px) { .nav .nav-links li:nth-child(4) { display: none; } }
 @media (max-width: 900px) { .nav .brand-text { font-size: 19px; } .btn-launch { height: 34px; font-size: 14px; } }
+
+/* GitHub logo in place of the word */
+.nav .icon-link { display: grid; place-items: center; width: 34px; height: 34px; margin: 0 -6px 0 -4px; border-radius: 4px; color: var(--ink); transition: background-color 0.18s, transform 0.12s; }
+.nav .icon-link:hover { background: rgb(0 0 0 / 0.07); }
+.nav .icon-link:active { transform: scale(0.94); }
+.nav .icon-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nav .icon-link svg { width: 24px; height: 24px; }
