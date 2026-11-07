@@ -5,27 +5,28 @@
 
 /* Brand tokens: see /brand.md. Off-white, black ink, flat surfaces, USDC blue for safety
    and highlights, amber = waiting, red = emergency only. Light only. */
+/* Blue exchange theme: pale blue backdrop with a soft glow, big rounded white cards, grey token inputs, blue primary actions. */
 :root {
   color-scheme: light;
-  --background: #f3f3f4;
-  --foreground: #0b0b0d;
+  --background: #f1f6fd;
+  --foreground: #0d1426;
   --card: #ffffff;
-  --muted: #ebebed;
-  --muted-foreground: #55555c;
-  --border: rgb(0 0 0 / 0.14);
-  --ink: #0b0b0d;
-  --ink-hover: #26262b;
-  --primary: #2775ca;
+  --muted: #eaf0fa;
+  --muted-foreground: #5a6785;
+  --border: rgb(18 60 130 / 0.12);
+  --ink: #0d1426;
+  --ink-hover: #222c44;
+  --primary: #2272d8;
   --primary-foreground: #ffffff;
-  --primary-soft: #e7f0fb;
-  --primary-soft-foreground: #1b4f94;
+  --primary-soft: #e4eeff;
+  --primary-soft-foreground: #174f9e;
   --warning-soft: oklch(0.95 0.05 85);
   --warning-foreground: oklch(0.45 0.1 60);
   --danger: oklch(0.56 0.2 27);
   --danger-foreground: #ffffff;
   --danger-soft: oklch(0.96 0.025 25);
   --danger-soft-foreground: oklch(0.45 0.15 27);
-  --ring: #2775ca;
+  --ring: #2272d8;
 }
 
 @theme inline {
@@ -54,6 +55,9 @@
 
 body {
   @apply bg-background text-foreground font-sans antialiased;
+  background-image: radial-gradient(70% 38% at 50% -8%, #cfe2ff 0%, rgb(207 226 255 / 0) 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 .tabular {
   font-variant-numeric: tabular-nums;
@@ -61,11 +65,10 @@ body {
 
 /* ── Type: light, tightly tracked headlines; DM Sans for copy; mono for UI text.
    Unlayered on purpose, so it wins over the component utilities (font-extrabold, tracking-tight…). ── */
-h1 { font-weight: 300; letter-spacing: -0.025em; }
-h2, h3 { font-weight: 500; letter-spacing: -0.015em; }
+h1 { font-weight: 500; letter-spacing: -0.02em; }
+h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
 .font-extrabold { font-weight: 500; }
 .font-bold { font-weight: 600; }
-label, .col-label { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0; }
 
 /* ── Wallet screens: the existing panels were laid out for a wide dashboard. Inside the wallet column they stack. ── */
 .wallet-col [class*="lg:grid-cols-"], .wallet-col [class*="sm:grid-cols-"] { grid-template-columns: minmax(0, 1fr); }
