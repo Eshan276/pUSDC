@@ -10,7 +10,7 @@ import { join, resolve } from "node:path";
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, "dist-test");
 const PORT = 8550, RPC = `http://127.0.0.1:${PORT}`;
-const PUSDC = "0xCabC4016cc24d2A2509552378dE6e232241295a3";
+let PUSDC; // deployed below with production minimums (1 day / 7 days / 1 day)
 const USDC = "0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be";
 const BACKUP = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const THIEF = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
@@ -46,7 +46,11 @@ async function step(name, fn) {
 console.log("Starting fork + building test extension…");
 anvil = spawn(`${FOUNDRY}/anvil`, ["--fork-url", "https://sepolia.base.org", "--port", String(PORT), "--chain-id", "84532", "--silent"], { stdio: "ignore" });
 for (let i = 0; i < 60; i++) { try { cast("block-number"); break; } catch { await new Promise((r) => setTimeout(r, 500)); } }
-const env = { VITE_RPC_URL: RPC };
+// The default Base Sepolia pUSDC now has minute minimums, so this suite deploys a production-minimum token on the fork.
+const DEPLOY_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+PUSDC = /Deployed to: (0x[0-9a-fA-F]{40})/.exec(sh(`forge create src/ProtectedWrapper.sol:ProtectedWrapper --rpc-url ${RPC} --private-key ${DEPLOY_KEY} --broadcast --constructor-args ${USDC} "Test Protected USDC" tpUSDC "(86400,604800,86400)"`, {}, resolve(ROOT, "..")))[1];
+console.log("deployed day-minimum token:", PUSDC);
+const env = { VITE_RPC_URL: RPC, VITE_PUSDC: PUSDC };
 sh(`npx vite build --outDir dist-test --emptyOutDir`, env);
 sh(`npx vite build --outDir dist-test`, { ...env, ENTRY: "inpage" });
 sh(`npx vite build --outDir dist-test`, { ...env, ENTRY: "content" });
@@ -201,12 +205,13 @@ await step("rejecting returns error 4001", async () => {
   await approve("Reject");
   if ((await r) !== 4001) throw new Error("code " + (await r));
 });
-await step("dApp transfer over the limit offers 'Schedule it instead'", async () => {
+await step("dApp transfer over the limit is scheduled automatically by the token", async () => {
   const data = sh(`cast calldata "transfer(address,uint256)" ${THIEF} 3000000000`);
-  const r = dapp.evaluate(([a, d]) => ethereum.request({ method: "eth_sendTransaction", params: [{ from: a, to: "0xCabC4016cc24d2A2509552378dE6e232241295a3", data: d }] }), [me, data]);
+  const r = dapp.evaluate(([a, d, t]) => ethereum.request({ method: "eth_sendTransaction", params: [{ from: a, to: t, data: d }] }), [me, data, PUSDC]);
   const p = await ctx.waitForEvent("page", { timeout: 20000 });
   await p.getByText("Over your daily limit").waitFor();
-  await p.getByRole("button", { name: "Schedule it instead" }).click();
+  await p.getByText("schedule this automatically").waitFor();
+  await p.getByRole("button", { name: "Approve and schedule" }).click();
   await r;
   if (bal(THIEF) !== "500000000") throw new Error("money moved");
   if (!/\d/.test(queued(me))) throw new Error("not queued: " + queued(me));

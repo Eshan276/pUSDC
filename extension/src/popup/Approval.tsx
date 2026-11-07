@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Clock, Globe, ShieldAlert } from "lucide-react";
-import { decodeFunctionData, encodeFunctionData, hexToBigInt, type Address, type Hex } from "viem";
+import { decodeFunctionData, hexToBigInt, type Address, type Hex } from "viem";
 import { pusdcAbi } from "@abi";
 import { Button, Card, Notice, Skeleton } from "@ui/ui";
 import { PUSDC } from "../shared/chain";
@@ -85,18 +85,13 @@ export function Approval({ id, state, onDone }: { id: string; state: WalletState
           </div>
           {overLimit && !tooLarge && (
             <Notice tone="warning" icon={<Clock />} title="Over your daily limit">
-              Sending this directly would be refused. You can schedule it instead: it will wait {fmtDuration(data.holdWindow)}, and you or your backup can stop it.
+              The token will schedule this automatically instead of sending it now. It will wait {fmtDuration(data.holdWindow)}, and you or your backup can stop it before then.
             </Notice>
           )}
           {tooLarge && <Notice tone="danger">Only {fmtAmount(data.available)} pUSDC is ready to use, so this can't go through.</Notice>}
           {err && <Notice tone="danger">{err}</Notice>}
           <div className="grid gap-2">
-            {overLimit && !tooLarge && transfer && (
-              <Button loading={busy} onClick={() => answer(true, { to: PUSDC, data: encodeFunctionData({ abi: pusdcAbi, functionName: "queueTransfer", args: [transfer.to, transfer.amount] }) })}>
-                Schedule it instead
-              </Button>
-            )}
-            {!(overLimit || tooLarge) && <Button loading={busy} onClick={() => answer(true)}>Approve</Button>}
+            {!tooLarge && <Button loading={busy} onClick={() => answer(true)}>{overLimit ? "Approve and schedule" : "Approve"}</Button>}
             <Button variant="secondary" loading={busy} onClick={() => answer(false)}>Reject</Button>
           </div>
         </>

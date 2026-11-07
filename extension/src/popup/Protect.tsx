@@ -82,7 +82,7 @@ export function SetupWizard({ me, tx, onClose, noEth }: { me: Address; tx: Tx; o
   const settingsError = limitError(s.limit) ?? durError(val(s.hold), bounds.hold, unit) ?? durError(val(s.off), bounds.off, unit) ?? durError(val(s.lock), bounds.lock, unit);
 
   async function confirm() {
-    const ok = await tx.run("protect", { address: PUSDC, abi: pusdcAbi, functionName: "protect", args: [backup as Address, limitUnits(s.limit), toSeconds(val(s.hold), unit), toSeconds(val(s.off), unit), toSeconds(val(s.lock), unit)] }, "Protection is on");
+    const ok = await tx.run("protect", { address: PUSDC, abi: pusdcAbi, functionName: "protect", args: [backup as Address, limitUnits(s.limit), toSeconds(val(s.hold), unit), toSeconds(val(s.off), unit), toSeconds(val(s.lock), unit), false] }, "Protection is on");
     if (ok) onClose();
   }
 

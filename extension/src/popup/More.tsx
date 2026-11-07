@@ -280,7 +280,6 @@ function TokenSettings() {
       if (!isAddress(a)) throw new Error("That doesn't look like an address.");
       // Make sure it really is a protected token wrapper before switching to it.
       const underlying = await publicClient.readContract({ address: a, abi: pusdcAbi, functionName: "underlying" }).catch(() => { throw new Error("That address isn't a Protected Wallet token on Base Sepolia."); });
-      await publicClient.readContract({ address: a, abi: pusdcAbi, functionName: "limitPeriod" }).catch(() => undefined);
       await setTokenOverride({ pusdc: a, usdc: underlying as `0x${string}` });
       resetBounds();
       location.reload();
@@ -291,7 +290,7 @@ function TokenSettings() {
     <>
       <h2 className="text-lg font-extrabold">Demo token</h2>
       <Card className="space-y-3">
-        <p className="text-sm text-muted-foreground">The real token uses delays of days. For live demos there's a test-only token whose delays can be set in minutes. Paste its address to switch; the wallet reads the allowed times from it.</p>
+        <p className="text-sm text-muted-foreground">Each deployment fixes its own shortest delays: days on a production token, minutes on a demo one. Paste a deployment's address to switch; the wallet reads that deployment's allowed times from it.</p>
         <dl className="divide-y divide-border rounded-2xl border border-border text-sm">
           <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-muted-foreground">Token</dt><dd className="break-all text-right font-mono text-xs">{PUSDC}</dd></div>
           <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-muted-foreground">Underlying</dt><dd className="break-all text-right font-mono text-xs">{USDC}</dd></div>

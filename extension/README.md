@@ -16,18 +16,14 @@ First install opens a full-page welcome flow. Needs `../frontend` (shared UI + g
 - **dApps:** EIP-1193 + EIP-6963 provider; connect, `eth_sendTransaction`, `personal_sign`, typed data v4; rejections return 4001.
 - **Keys:** seed encrypted with AES-GCM; data key wrapped under the password (PBKDF2-SHA256, 600k) and the optional PIN. Decrypted keys live only in `chrome.storage.session`.
 
-## Minute-level demo token
-The real token enforces day-level delays. For live demos there is a testnet-only variant (`src/demo/DemoFastProtectedWrapper.sol`: 1-minute minimums, 10-minute daily window). The wallet reads the allowed ranges from the contract, so against the demo token it shows minutes and a "Fast demo" preset automatically.
-Deploy it with your keystore, then either paste the printed address into the wallet (**More → Demo token → Use this token**, no rebuild needed; "Back to default" undoes it), or build the extension pointing at it:
-```sh
-forge script script/DeployDemoFast.s.sol --rpc-url base_sepolia --sender <you> --account <keystore> --broadcast
-VITE_PUSDC=<printed address> npm run build
-```
-Countdowns follow the chain's clock (latest block), not the computer's.
+## Short delays for demos
+Each ProtectedWrapper deployment fixes its own shortest delays in the constructor (days on a production token, minutes on a demo one). The wallet reads `MIN_*` and `MAX_*` from the contract, so against the current Base Sepolia deployment (60s hold, 120s off-delay, 60s lock) it shows minutes and a "Fast demo" preset automatically; against a day-based deployment it shows days.
+To try another deployment, paste its address in **More → Demo token** (no rebuild; "Back to default" undoes it), or build with `VITE_PUSDC=<address> npm run build`. Countdowns follow the chain's clock (latest block), not the computer's.
+Plain over-limit sends from this wallet are scheduled by the token itself, and the approval screen says so.
 
 ## Testing
 `npm run test:e2e` starts an anvil fork of Base Sepolia, builds a test copy of the extension (`dist-test`), and drives real Chromium through 20 checks: onboarding and quiz validation, lock/unlock, one-click funding, protection wizard, instant vs scheduled sends, cancel, looser-vs-stricter settings, dApp connect / sign / typed data / reject / "Schedule it instead" / read passthrough, Guard, and the emergency-PIN sweep with decoy.
-Needs foundry (`anvil`, `cast`) and a Chromium (set `CHROME=/path/to/chrome` if it isn't found in the Playwright cache). `npm run test:e2e:fast` deploys the demo token on the fork and checks minute-level scheduling, completion after 2 minutes and the 10-minute limit reset. Not covered: Chrome notifications and auto-lock timing.
+Needs foundry (`anvil`, `cast`) and a Chromium (set `CHROME=/path/to/chrome` if it isn't found in the Playwright cache). `npm run test:e2e:fast` runs against the minute-minimum deployment: minute inputs and the Fast demo preset, scheduling, completion after 2 minutes, and switching deployments in the UI. `npm run test:e2e` deploys a production-minimum (day-based) token on the fork first. Not covered: Chrome notifications and auto-lock timing.
 
 ## Not done
 Multiple accounts, other chains, token list beyond pUSDC, transaction history from chain (activity shows what you did in this wallet), an independent security review.

@@ -4,7 +4,7 @@ import { baseSepolia } from "viem/chains";
 export const EXPLORER = "https://sepolia.basescan.org";
 /** Demo deployment on Base Sepolia (see the repo README). */
 /** Defaults; override with VITE_PUSDC / VITE_USDC at build time, or at runtime from More → Demo token (see loadConfig). */
-export const DEFAULT_PUSDC = ((import.meta.env.VITE_PUSDC as string | undefined) ?? "0xCabC4016cc24d2A2509552378dE6e232241295a3") as `0x${string}`;
+export const DEFAULT_PUSDC = ((import.meta.env.VITE_PUSDC as string | undefined) ?? "0x033B36fE536e97d312Ece98750A0302eF31CBBab") as `0x${string}`;
 export const DEFAULT_USDC = ((import.meta.env.VITE_USDC as string | undefined) ?? "0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be") as `0x${string}`;
 /** Live bindings: importers see the new value after the user switches token. */
 export let PUSDC: `0x${string}` = DEFAULT_PUSDC;

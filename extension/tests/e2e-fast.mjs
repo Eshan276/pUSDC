@@ -1,19 +1,20 @@
-// Minute-level demo token: protect with the "Fast demo" preset, watch a queued transfer mature after 2 minutes,
-// and the daily-limit window reset after 10 minutes. Run: npm run test:e2e:fast
-import { BACKUP, THIEF, cast, deployDemoToken, start } from "./harness.mjs";
+// Minute-level deployment: the default Base Sepolia pUSDC has minute minimums, so the wizard offers minutes and the
+// "Fast demo" preset; a queued transfer matures after 2 minutes. Also switches to another deployment through the UI.
+// Run: npm run test:e2e:fast
+import { BACKUP, THIEF, cast, deployToken, start } from "./harness.mjs";
 const USDC = "0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be";
 let PUSDC;
-// Built with the default (day-based) token: the demo token is switched on from inside the wallet.
-const h = await start({ beforeBuild: () => { PUSDC = deployDemoToken(USDC); console.log("demo token:", PUSDC); return {}; } });
+// Built with the default token (minute-level minimums). A second deployment is switched to from inside the wallet.
+const h = await start({ beforeBuild: () => { PUSDC = deployToken(USDC, "60,120,60"); console.log("second deployment:", PUSDC); return {}; } });
 const bal = (w) => cast(`call ${PUSDC} "balanceOf(address)(uint256)" ${w}`).split(" ")[0];
 const warp = (s) => { cast(`rpc evm_increaseTime ${s}`); cast("rpc evm_mine"); };
 const { page, T, step } = h;
 
 const me = await h.onboard();
-await step("default token shows days; switching to the demo token in More → Demo token shows minutes", async () => {
+await step("default deployment shows minutes; another deployment can be switched to in More → Demo token", async () => {
   await page.getByRole("button", { name: "More" }).click();
   await page.getByText("Demo token").first().click();
-  await page.getByText("Days", { exact: true }).waitFor();
+  await page.getByText("Minutes (demo)").waitFor();
   await page.getByLabel("Token address").fill("0x0000000000000000000000000000000000000001");
   await page.getByRole("button", { name: "Use this token" }).click();
   await page.getByText("isn't a Protected Wallet token").waitFor();
@@ -22,6 +23,7 @@ await step("default token shows days; switching to the demo token in More → De
   const nav = page.getByRole("navigation", { name: "Sections" });
   await nav.getByRole("button", { name: "More" }).click();
   await page.getByText("Demo token").first().click();
+  await page.getByText(PUSDC, { exact: false }).first().waitFor();
   await page.getByText("Minutes (demo)").waitFor();
   await nav.getByRole("button", { name: "Wallet" }).click();
 });
@@ -60,17 +62,6 @@ await step("after 2 minutes it can be completed", async () => {
   await page.getByRole("button", { name: "Complete" }).click();
   await T("Transfer completed");
   if (bal(THIEF) !== "300000000") throw new Error("thief has " + bal(THIEF));
-});
-await step("daily limit resets after 10 minutes", async () => {
-  await page.getByRole("button", { name: "Send", exact: true }).click();
-  await page.getByLabel("To").fill(THIEF);
-  await page.getByLabel("Amount").fill("100");
-  await page.getByRole("button", { name: "Send now" }).click();
-  await T("Sent");
-  await page.getByLabel("Amount").fill("100");
-  await page.getByText("over today's limit").waitFor(); // window used up
-  warp(11 * 60);
-  await page.getByText("goes out right away").waitFor({ timeout: 30000 });
 });
 await step("settings page edits in minutes", async () => {
   await page.getByRole("button", { name: "More" }).click();

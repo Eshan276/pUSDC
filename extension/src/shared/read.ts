@@ -77,22 +77,26 @@ export function alertKeys(x: Protection): string[] {
 
 let boundsCache: Promise<Bounds> | undefined;
 export const resetBounds = () => { boundsCache = undefined; };
-/** Reads the allowed time ranges from the contract. Older deployments lack these views, so fall back to the real-token rules. */
+
+/**
+ * Reads this deployment's allowed time ranges. Minimums are fixed per deployment (days on a production token,
+ * minutes on a demo one); maximums are constants. Falls back to the production rules if the reads fail.
+ */
 export function readBounds(): Promise<Bounds> {
   boundsCache ??= publicClient
     .multicall({
       allowFailure: true,
       contracts: [
-        { ...P(), functionName: "paramBounds", args: [1] },
-        { ...P(), functionName: "paramBounds", args: [2] },
-        { ...P(), functionName: "paramBounds", args: [3] },
-        { ...P(), functionName: "limitPeriod" },
+        { ...P(), functionName: "MIN_HOLD_WINDOW" }, { ...P(), functionName: "MAX_HOLD_WINDOW" },
+        { ...P(), functionName: "MIN_OFF_DELAY" }, { ...P(), functionName: "MAX_OFF_DELAY" },
+        { ...P(), functionName: "MIN_LOCK_DURATION" }, { ...P(), functionName: "MAX_LOCK_DURATION" },
+        { ...P(), functionName: "LIMIT_PERIOD" },
       ],
     })
-    .then(([h, o, l, per]) => {
-      if ([h, o, l, per].some((x) => x.status !== "success")) return DEFAULT_BOUNDS;
-      const r = (x: unknown) => [Number((x as readonly [bigint, bigint])[0]), Number((x as readonly [bigint, bigint])[1])] as [number, number];
-      return { hold: r(h.result), off: r(o.result), lock: r(l.result), limitPeriod: Number(per.result) };
+    .then((r) => {
+      if (r.some((x) => x.status !== "success")) return DEFAULT_BOUNDS;
+      const n = (i: number) => Number(r[i].result as bigint);
+      return { hold: [n(0), n(1)], off: [n(2), n(3)], lock: [n(4), n(5)], limitPeriod: n(6) } as Bounds;
     })
     .catch(() => { boundsCache = undefined; return DEFAULT_BOUNDS; });
   return boundsCache;

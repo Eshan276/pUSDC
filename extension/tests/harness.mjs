@@ -24,9 +24,9 @@ function findChrome() {
   }
 }
 
-/** Deploys the minute-level demo token on the fork and returns its address. */
-export function deployDemoToken(usdc) {
-  const out = sh(`forge create src/demo/DemoFastProtectedWrapper.sol:DemoFastProtectedWrapper --rpc-url ${RPC} --private-key ${ANVIL_KEY} --broadcast --constructor-args ${usdc} "Demo Protected USDC (fast)" dpUSDC`, {}, resolve(ROOT, ".."));
+/** Deploys a ProtectedWrapper on the fork with the given minimums in seconds ("hold,offDelay,lock") and returns its address. */
+export function deployToken(usdc, mins = "60,120,60", name = "Test Protected USDC", symbol = "tpUSDC") {
+  const out = sh(`forge create src/ProtectedWrapper.sol:ProtectedWrapper --rpc-url ${RPC} --private-key ${ANVIL_KEY} --broadcast --constructor-args ${usdc} "${name}" ${symbol} "(${mins})"`, {}, resolve(ROOT, ".."));
   return /Deployed to: (0x[0-9a-fA-F]{40})/.exec(out)[1];
 }
 
