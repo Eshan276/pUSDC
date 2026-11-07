@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { formatUnits, getAddress, type Address } from "viem";
-import { ArrowLeft, ArrowRight, Check, Clock, FastForward, Send, KeyRound, LifeBuoy, PackageOpen, Pencil, ShieldCheck, TriangleAlert, Wallet, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Clock, FastForward, Send, UserCheck, KeyRound, LifeBuoy, PackageOpen, Pencil, ShieldCheck, TriangleAlert, Wallet, Zap } from "lucide-react";
 import { pusdcAbi } from "../abi";
 import { DECIMALS, IS_TESTNET, Param, PUSDC, type ParamId } from "../config";
 import { durationError, fromSeconds, toSeconds, useBounds, type Bound, type Dur, type Unit } from "../lib/duration";
 import { addressProblem, fmtAmount, fmtCountdown, fmtDate, fmtDuration, parseAmount, shortAddr } from "../lib/format";
 import { isStricter, rememberBackup, type ProtectionData } from "../lib/useProtection";
+import { setCompleter, useCompleter, type Completer } from "../lib/prefs";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Field, HoldButton, Notice, inputClass, useNow } from "./ui";
 
@@ -81,6 +82,7 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
     }
   }, [bounds.loaded, bounds.isDemo, picked]);
   const [fastLane, setFastLane] = useState(false);
+  const [completer, setCompleterChoice] = useState<Completer>("me");
   const [tried, setTried] = useState(false);
   const s = (preset === "custom" ? custom : presets.find((x) => x.id === preset)?.s) ?? EVERYDAY;
 
@@ -109,6 +111,7 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
   const turnOn = async () => {
     // Remember the backup we chose, so the dashboard can flag a hijacked setup.
     rememberBackup(address, getAddress(backup));
+    setCompleter(address, completer);
     await run(
       "protect",
       {
@@ -206,6 +209,7 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
               </span>
             </span>
           </label>
+          <CompleterChoice value={completer} onChange={setCompleterChoice} />
           {IS_TESTNET && !bounds.isDemo && preset !== "custom" && (
             <p className="text-sm text-muted-foreground">Trying it out? Pick Custom with the shortest waits, so you can watch a scheduled transfer go through.</p>
           )}
@@ -221,6 +225,13 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
               { icon: Clock, text: `Anything more waits ${fmtDuration(toSeconds(s.hold))}. You or your backup can cancel it during that time.` },
               { icon: Wallet, text: `Your backup wallet is ${shortAddr(backup)}.` },
               ...(fastLane ? [{ icon: FastForward, text: "Your backup can approve a big transfer to send it right away." }] : []),
+              {
+                icon: UserCheck,
+                text:
+                  completer === "recipient"
+                    ? "When a big transfer is ready, the recipient completes it. You'll get a link to send them."
+                    : "When a big transfer is ready, you complete it from your scheduled transfers.",
+              },
               {
                 icon: Send,
                 text: `Heads up: a big send from MetaMask or any other wallet app is scheduled too. Your wallet shows it as sent, but the recipient only gets it after ${fmtDuration(toSeconds(s.hold))}${fastLane ? " (or when your backup approves)" : ""}. Don't use big sends for payments that must arrive now.`,
@@ -282,6 +293,7 @@ function SettingsCard({ d, address }: { d: ProtectionData; address: Address }) {
           <ParamRow key={r.param} row={r} current={current[r.param]} d={d} />
         ))}
         <FastLaneRow d={d} />
+        <CompleterRow address={address} />
         <BackupRow d={d} address={address} />
       </ul>
     </Card>
@@ -571,5 +583,70 @@ function MoveOut({ d, address }: { d: ProtectionData; address: Address }) {
         </Button>
       </div>
     </form>
+  );
+}
+
+/* ───────────────────────── who completes ready transfers ───────────────────────── */
+
+const COMPLETER_OPTIONS: { id: Completer; title: string; body: string }[] = [
+  { id: "me", title: "I'll complete it", body: "It shows as Ready in your scheduled transfers; one click sends it." },
+  { id: "recipient", title: "The recipient completes it", body: "You get a link to send them; they open it and receive the pUSDC." },
+];
+
+function CompleterChoice({ value, onChange }: { value: Completer; onChange: (c: Completer) => void }) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-semibold">When a big transfer is ready, who completes it?</legend>
+      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Who completes ready transfers">
+        {COMPLETER_OPTIONS.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={value === o.id}
+            onClick={() => onChange(o.id)}
+            className={`rounded-2xl border p-4 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${value === o.id ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}
+          >
+            <span className="flex items-center justify-between font-semibold">
+              {o.title} {value === o.id && <Check className="size-4 text-primary" aria-hidden />}
+            </span>
+            <span className="mt-1 block text-muted-foreground">{o.body}</span>
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">Either way, anyone can complete a ready transfer, and you or your backup can cancel it until then.</p>
+    </fieldset>
+  );
+}
+
+function CompleterRow({ address }: { address: Address }) {
+  const value = useCompleter(address);
+  const [editing, setEditing] = useState(false);
+  const current = COMPLETER_OPTIONS.find((o) => o.id === value)!;
+  return (
+    <li className="py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold">Who completes ready transfers</p>
+          <p className="text-sm text-muted-foreground">Saved on this device. Changes apply instantly.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="whitespace-nowrap font-bold">{current.title}</span>
+          {!editing && (
+            <button onClick={() => setEditing(true)} aria-label="Change who completes ready transfers" className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Pencil className="size-4" aria-hidden />
+            </button>
+          )}
+        </div>
+      </div>
+      {editing && (
+        <div className="mt-3 space-y-3 rounded-2xl bg-muted p-4">
+          <CompleterChoice value={value} onChange={(c) => setCompleter(address, c)} />
+          <Button variant="ghost" onClick={() => setEditing(false)}>
+            Done
+          </Button>
+        </div>
+      )}
+    </li>
   );
 }

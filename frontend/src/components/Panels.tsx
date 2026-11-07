@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatUnits, getAddress, type Address } from "viem";
+import { decodeEventLog, formatUnits, getAddress, type Address } from "viem";
 import { ArrowDownToLine, ArrowUpFromLine, CalendarClock, CheckCircle2, ExternalLink, Hourglass, Inbox, Send, Zap } from "lucide-react";
 import { pusdcAbi, schedulerAbi, usdcAbi } from "../abi";
 import { useReadContracts } from "wagmi";
@@ -8,6 +8,8 @@ import { addressProblem, fmtAmount, fmtCountdown, fmtDate, fmtDuration, parseAmo
 import type { PendingTransfer, ProtectionData } from "../lib/useProtection";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Field, Notice, inputClass, useNow } from "./ui";
+import { CopyLinkButton, IncomingList } from "./Incoming";
+import { useCompleter } from "../lib/prefs";
 
 const p = { address: PUSDC, abi: pusdcAbi } as const;
 
@@ -70,6 +72,8 @@ export function SendPanel({ d, address }: { d: ProtectionData; address: Address 
   const [to, setTo] = useState("");
   const [amt, setAmt] = useState("");
   const [touched, setTouched] = useState(false);
+  const [sharedId, setSharedId] = useState<bigint>();
+  const completer = useCompleter(address);
   const amount = parseAmount(amt);
   const r = route(d, amount);
   const toError = addressProblem(to, "Enter who you're sending to.") ?? (to.toLowerCase() === address.toLowerCase() ? "That's your own wallet." : undefined);
@@ -85,6 +89,16 @@ export function SendPanel({ d, address }: { d: ProtectionData; address: Address 
       r.kind === "scheduled"
         ? await run("send", { ...p, functionName: "queueTransfer", args: [getAddress(to), amount] }, `Transfer scheduled for ${fmtDate(r.at)}`)
         : await run("send", { ...p, functionName: "transfer", args: [getAddress(to), amount] }, `Sent ${fmtAmount(amount)} pUSDC`);
+    if (ok && r.kind === "scheduled" && completer === "recipient") {
+      for (const log of ok.logs) {
+        try {
+          const ev = decodeEventLog({ abi: pusdcAbi, data: log.data, topics: log.topics });
+          if (ev.eventName === "TransferQueued") setSharedId(ev.args.id);
+        } catch {
+          /* not ours */
+        }
+      }
+    }
     if (ok) {
       setAmt("");
       setTouched(false);
@@ -110,14 +124,33 @@ export function SendPanel({ d, address }: { d: ProtectionData; address: Address 
           </Field>
           <AmountField id="send-amount" label="Amount" value={amt} onChange={setAmt} max={d.available} maxLabel="Free to send" error={amtShown} />
           <RouteNotice r={r} d={d} verb="Arrives" />
+          {r.kind === "scheduled" && (
+            <p className="text-sm text-muted-foreground">
+              {completer === "recipient"
+                ? "When it's ready, the recipient completes it. You'll get a link to send them."
+                : "When it's ready, complete it from your scheduled transfers (or the recipient can)."}
+            </p>
+          )}
+          {sharedId !== undefined && (
+            <Notice tone="success" icon={<Send />} title="Scheduled. Now send the recipient this link">
+              <p>They open it and complete the transfer once the wait is over.</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <CopyLinkButton id={sharedId} label="Copy link" />
+                <Button variant="ghost" type="button" onClick={() => setSharedId(undefined)}>
+                  Done
+                </Button>
+              </div>
+            </Notice>
+          )}
           <Button type="submit" loading={busy === "send"} className="w-full">
             {r.kind === "scheduled" ? <CalendarClock className="size-4" aria-hidden /> : <Send className="size-4" aria-hidden />}
             {r.kind === "scheduled" ? "Schedule transfer" : "Send now"}
           </Button>
         </form>
       </Card>
-      <div className="lg:col-span-2">
-        <PendingList title="Your scheduled transfers" transfers={d.pending} loading={d.pendingLoading} role="owner" fastLane={d.fastLane} />
+      <div className="space-y-6 lg:col-span-2">
+        <PendingList title="Your scheduled transfers" transfers={d.pending} loading={d.pendingLoading} role="owner" fastLane={d.fastLane} shareable={completer === "recipient"} />
+        <IncomingList address={address} />
       </div>
     </div>
   );
@@ -192,7 +225,7 @@ export function WrapPanel({ d }: { d: ProtectionData }) {
 }
 
 /** Scheduled (queued) transfers with countdowns. Owner and backup can cancel; anyone can complete a ready one. */
-export function PendingList({ title, transfers, loading, role, fastLane, emptyText }: { title: string; transfers: PendingTransfer[]; loading?: boolean; role: "owner" | "backup" | "watcher"; fastLane?: boolean; emptyText?: string }) {
+export function PendingList({ title, transfers, loading, role, fastLane, emptyText, shareable }: { title: string; transfers: PendingTransfer[]; loading?: boolean; role: "owner" | "backup" | "watcher"; fastLane?: boolean; emptyText?: string; shareable?: boolean }) {
   const now = useNow();
   const { run, busy } = useTx();
   // Swap terms for transfers headed to ScheduledSwap, so owner and backup can review them during the hold.
@@ -271,6 +304,7 @@ export function PendingList({ title, transfers, loading, role, fastLane, emptyTe
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
+                  {shareable && role === "owner" && !isSwap && !unwrap && <CopyLinkButton id={t.id} />}
                   {!ready && fastLane && role === "backup" && (
                     <Button loading={busy === `ap${t.id}`} onClick={() => run(`ap${t.id}`, { ...p, functionName: "approveTransfer", args: [t.id] }, "Approved and sent")}>
                       Approve now

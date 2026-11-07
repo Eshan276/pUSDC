@@ -6,6 +6,7 @@ import { CHAIN, TEST_MODE } from "./config";
 import { shortAddr } from "./lib/format";
 import { Button, Notice } from "./components/ui";
 import { Welcome } from "./components/Welcome";
+import { SharedTransfer } from "./components/Incoming";
 import { Dashboard } from "./components/Dashboard";
 import { friendlyError } from "./lib/errors";
 
@@ -38,6 +39,7 @@ export default function App() {
 
       <PrivacyBanner />
       <main className="mx-auto max-w-5xl px-4 pb-24 sm:px-6">
+        <SharedTransfer />
         {!isConnected ? <Welcome /> : wrongChain ? <WrongNetwork /> : <Dashboard address={address!} />}
       </main>
 
