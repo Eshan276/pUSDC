@@ -57,6 +57,38 @@ Every duration (hold window, off-delay, emergency lock) is stored in seconds, so
 Override either script with `MIN_HOLD`, `MIN_OFF_DELAY`, `MIN_LOCK` (in seconds). The app reads the minimums from the
 contract and offers a "Quick demo" preset on minute-level deployments.
 
+## Uniswap v4: protected big swaps ([`src/ScheduledSwap.sol`](src/ScheduledSwap.sol))
+
+A protected account can't make a big swap through any normal router, because the router's `transferFrom` reverts over the
+daily limit. Switching protection off would take days and expose you. **ScheduledSwap** gives protected holders big swaps on
+Uniswap v4 with no new trust:
+
+1. **Owner:** `pUSDC.queueTransfer(scheduledSwap, amount)`, an ordinary scheduled transfer, so the backup can cancel it and
+   `stress()` wipes it.
+2. **Owner:** `register(id, poolKey, minOut)` records the swap terms on-chain, so the backup can review them during the hold.
+3. **Anyone, after the hold** (or right away if the backup approves through the fast lane): `execute(id)` swaps on v4 and pays
+   the output **straight to the owner**. A thief who triggers it gains nothing.
+
+Where v4 is used (exact lines):
+
+| What | Code |
+| --- | --- |
+| Take the lock with flash accounting: `PoolManager.unlock` | [ScheduledSwap.sol#L108](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L108) |
+| Callback entry point | [ScheduledSwap.sol#L149](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L149) |
+| Exact-input `swap` | [ScheduledSwap.sol#L155](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L155) |
+| `minOut` slippage guard | [ScheduledSwap.sol#L168](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L168) |
+| Pay the input: `sync` → ERC-20 transfer → `settle` | [ScheduledSwap.sol#L172-L174](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L172-L174) |
+| `take` the output directly to the owner | [ScheduledSwap.sol#L177](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L177) |
+| Safety checks on register (hookless pool, must trade pUSDC, `minOut > 0`) | [ScheduledSwap.sol#L83-L94](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L83-L94) |
+| Tokens delivered without a swap (direct execute / fast lane) are still swapped, or refunded | [ScheduledSwap.sol#L118-L146](https://github.com/Eshan276/pUSDC/blob/main/src/ScheduledSwap.sol#L118-L146) |
+| Pool creation (`initialize`) and seeding (`modifyLiquidity`) | [DeployScheduledSwap.s.sol#L32-L35](https://github.com/Eshan276/pUSDC/blob/main/script/DeployScheduledSwap.s.sol#L32-L35), [V4LiquidityHelper.sol#L28](https://github.com/Eshan276/pUSDC/blob/main/test/helpers/V4LiquidityHelper.sol#L28) |
+
+The tests ([`test/ScheduledSwap.t.sol`](test/ScheduledSwap.t.sol)) run against the **real v4 PoolManager on a Base Sepolia fork**
+(`0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408`). They cover the happy path, a backup cancel, stress, the hold, `minOut`, ownership,
+hooked and wrong pools, delivery without a swap, the fast lane, refunds, and a thief triggering the swap. The pool is a hookless 0.05%
+pUSDC/USDC pool with liquidity concentrated within ±1% of 1.00, so a 15,000 swap costs about 0.1%.
+Developer feedback is in [`FEEDBACK.md`](FEEDBACK.md).
+
 ## Deployments
 
 | Network | Contract | Address |
