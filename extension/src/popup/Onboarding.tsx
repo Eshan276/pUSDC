@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Clock, Eye, EyeOff, KeyRound, Lock, LifeBuoy, ShieldCheck, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Clock, Eye, EyeOff, KeyRound, LifeBuoy, ShieldCheck, Zap } from "lucide-react";
 import { Button, Card, Field, Notice, inputClass } from "@ui/ui";
+import { Mark } from "@ui/Mark";
 import { call } from "./api";
 
 /* ───────── shared bits ───────── */
@@ -81,7 +82,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     const S = SLIDES[slide];
     return (
       <Card className="space-y-6 py-8 text-center">
-        <span className="mx-auto grid size-16 place-items-center rounded-3xl bg-primary-soft text-primary"><S.icon className="size-8" aria-hidden /></span>
+        {slide === 0 ? <Mark className="mx-auto size-20" /> : <span className="mx-auto grid size-16 place-items-center rounded-xl bg-primary-soft text-primary"><S.icon className="size-8" aria-hidden /></span>}
         <div className="space-y-2" aria-live="polite">
           <h2 className="text-xl font-extrabold">{S.title}</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">{S.body}</p>
@@ -225,7 +226,7 @@ export function Unlock({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit}>
       <Card className="space-y-4">
-        <h2 className="flex items-center gap-2 text-lg font-extrabold"><Lock className="size-5" aria-hidden />Welcome back</h2>
+        <div className="flex items-center gap-3"><Mark className="size-10" /><h2 className="text-lg font-extrabold">Welcome back</h2></div>
         <Field label="Password" htmlFor="pin" error={err}>
           <input id="pin" type="password" autoFocus className={inputClass} value={pin} onChange={(e) => setPin(e.target.value)} />
         </Field>

@@ -4,6 +4,9 @@ _Status: active. The web app, the browser extension and the landing page share t
 
 **Feeling:** calm, precise and flat, like a good terminal: lots of air, black ink, one confident blue. Safety without fear.
 
+## Logo
+A blue coin (`#005ac5`) holding a split white shield with a dollar sign. Master files are in `brand/`: `logo.svg` (clean vector, traced from the supplied artwork) and transparent PNGs at 16, 32, 48, 128, 256 and 512 px. It is used as the header mark and favicon in the web app, the browser extension (toolbar, notifications, wallet list, welcome screens) and the landing page. Always use the full-colour coin; on a blue background put it inside a white ring.
+
 ## Palette (tokens in `frontend/src/index.css`; the landing page uses the same values)
 | Token | Value | Use |
 | --- | --- | --- |
