@@ -287,6 +287,12 @@ function BalanceCard({ d, address, onAdd }: { d: ProtectionData; address: Addres
         >
           <PlusCircle className="size-4" aria-hidden /> Show pUSDC in my wallet
         </Button>
+        <Button
+          variant="ghost"
+          onClick={() => watchAsset({ type: "ERC20", options: { address: USDC, symbol: "USDC", decimals: DECIMALS } })}
+        >
+          <PlusCircle className="size-4" aria-hidden /> Show {IS_TESTNET ? "test USDC" : "USDC"} in my wallet
+        </Button>
       </div>
     </Card>
   );
