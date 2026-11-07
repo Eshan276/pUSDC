@@ -1784,3 +1784,9 @@ body { background: var(--bg); color: var(--fg); }
 .footer { border-top: 1px solid var(--line); }
 .tile-sub { font-family: var(--sans); }
 @media (max-width: 640px) { .footer .squares.sm a { font-size: 13px; overflow-wrap: anywhere; } }
+
+/* ───── Logo: a full-colour coin, so the token in the blue panel gets a white ring instead of a tinted disc ───── */
+.token { background: #fff; padding: calc(3 * var(--k)); box-shadow: 0 0 0 calc(5 * var(--k)) rgb(255 255 255 / 0.12); }
+.token svg { position: static; inset: auto; width: 100%; height: 100%; color: inherit; display: block; }
+.nav .mark, .footer-brand .mark { color: inherit; }
+.w-mark svg { color: inherit; }
