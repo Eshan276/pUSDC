@@ -260,6 +260,9 @@ function ReceiveScreen({ d, address }: { d: ProtectionData; address: Address }) 
         <Button variant="ghost" onClick={() => watchAsset({ type: "ERC20", options: { address: PUSDC, symbol: "pUSDC", decimals: DECIMALS } })}>
           <PlusCircle className="size-4" aria-hidden /> Show pUSDC in my wallet
         </Button>
+        <Button variant="ghost" onClick={() => watchAsset({ type: "ERC20", options: { address: USDC, symbol: "USDC", decimals: DECIMALS } })}>
+          <PlusCircle className="size-4" aria-hidden /> Show {IS_TESTNET ? "test USDC" : "USDC"} in my wallet
+        </Button>
       </div>
       {d.locked > 0n && <p className="font-mono text-xs text-muted-foreground">{fmtAmount(d.locked)} pUSDC is locked and can't be moved yet.</p>}
     </Card>

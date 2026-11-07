@@ -162,6 +162,8 @@ restart anvil and rerun.
 
 ## Frontend (`frontend/`)
 
+**Live app:** https://protected-usdc.vercel.app (Base Sepolia; connect MetaMask and use "Get 10,000 test USDC" to start).
+
 A static web app for the Base Sepolia demo deployment: no backend, no trackers, browser-extension wallets only. It builds to plain
 files, so it can be hosted on IPFS + ENS.
 
