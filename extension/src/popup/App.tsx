@@ -28,8 +28,8 @@ export function App() {
     <div className={`mx-auto flex min-h-[560px] flex-col gap-4 p-4 ${approveId ? "approval-window" : ""} ${inTab ? "max-w-[440px] pt-10" : ""}`}>
       <header className="flex items-center gap-2">
         <Mark className="size-8" />
-        <h1 className="text-base font-extrabold">Protected Wallet</h1>
-        <span className="ml-auto rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">Base Sepolia</span>
+        <h1 className="text-lg font-bold tracking-tight">Protected Wallet</h1>
+        <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"><i className="size-2 rounded-full bg-primary" aria-hidden />Base Sepolia</span>
       </header>
       {body}
     </div>

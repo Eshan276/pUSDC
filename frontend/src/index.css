@@ -1,10 +1,9 @@
 @import "tailwindcss";
 @import "@fontsource-variable/dm-sans/opsz.css";
 @import "@fontsource-variable/dm-sans/opsz-italic.css";
-@import "@fontsource-variable/newsreader/opsz-italic.css";
 @import "@fontsource-variable/jetbrains-mono";
 
-/* Brand tokens: see /brand.md. Same theme as the landing page: off-white, black ink, flat surfaces, USDC blue for safety
+/* Brand tokens: see /brand.md. Off-white, black ink, flat surfaces, USDC blue for safety
    and highlights, amber = waiting, red = emergency only. Light only. */
 :root {
   color-scheme: light;
@@ -31,7 +30,6 @@
 
 @theme inline {
   --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Newsreader Variable", Georgia, serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -61,7 +59,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Type, as on the landing page: light, tightly tracked headlines; DM Sans for copy; mono for UI text.
+/* ── Type: light, tightly tracked headlines; DM Sans for copy; mono for UI text.
    Unlayered on purpose, so it wins over the component utilities (font-extrabold, tracking-tight…). ── */
 h1 { font-weight: 300; letter-spacing: -0.025em; }
 h2, h3 { font-weight: 500; letter-spacing: -0.015em; }
@@ -69,39 +67,6 @@ h2, h3 { font-weight: 500; letter-spacing: -0.015em; }
 .font-bold { font-weight: 600; }
 label, .col-label { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0; }
 
-/* The highlighted phrase in the hero: a solid blue box with white italic serif */
-.hl {
-  display: inline-block;
-  padding: 0 0.1em 0.04em;
-  margin: 0 0.04em;
-  background: var(--primary);
-  color: #fff;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  line-height: 1.02;
-  letter-spacing: -0.01em;
-}
-
-/* ── ASCII artwork (same ten clusters as the landing page; see components/AsciiArt.tsx) ── */
-.ascii { --ka: 0.95px; position: relative; width: calc(460 * var(--ka)); height: calc(250 * var(--ka)); max-width: 100%; margin-inline: auto; animation: ascii-in 1.2s ease-out 0.3s both; }
-@media (max-width: 767px) { .ascii { --ka: calc((100vw - 40px) / 460); } }
-.ascii .cl {
-  position: absolute;
-  left: calc(var(--x) * var(--ka));
-  top: calc(var(--y) * var(--ka));
-  margin: 0;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: calc(8.7 * var(--ka));
-  line-height: calc(10.4 * var(--ka));
-  color: rgb(30 52 168 / var(--a, 1));
-  white-space: pre;
-  user-select: none;
-  animation: ascii-breathe var(--t) ease-in-out calc(var(--i) * -0.7s) infinite;
-}
-.ascii .cl.drift { animation: ascii-breathe var(--t) ease-in-out calc(var(--i) * -0.7s) infinite, ascii-drift 9s ease-in-out calc(var(--i) * -1.3s) infinite; }
-@keyframes ascii-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes ascii-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.74; } }
-@keyframes ascii-drift { 0%, 100% { translate: 0 0; } 50% { translate: 0 calc(-2.5 * var(--ka)); } }
-@media (prefers-reduced-motion: reduce) { .ascii, .ascii .cl { animation: none !important; } }
+/* ── Wallet screens: the existing panels were laid out for a wide dashboard. Inside the wallet column they stack. ── */
+.wallet-col [class*="lg:grid-cols-"], .wallet-col [class*="sm:grid-cols-"] { grid-template-columns: minmax(0, 1fr); }
+.wallet-col [class*="lg:col-span-"] { grid-column: auto; }

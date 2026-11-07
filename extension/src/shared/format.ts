@@ -40,3 +40,7 @@ export function fmtEth(v: bigint | undefined): string {
   const n = Number(formatEther(v));
   return n < 0.00001 ? "<0.00001" : n.toLocaleString(undefined, { maximumSignificantDigits: 4 });
 }
+
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+/** 12000000000n (6 decimals) -> "$12,000.00". pUSDC and USDC are both pegged 1:1 to a dollar. */
+export const fmtUsd = (v: bigint) => usd.format(Number(formatUnits(v, DECIMALS)));

@@ -9,6 +9,7 @@ const h = await start({ beforeBuild: () => { PUSDC = deployToken(USDC, "60,120,6
 const bal = (w) => cast(`call ${PUSDC} "balanceOf(address)(uint256)" ${w}`).split(" ")[0];
 const warp = (s) => { cast(`rpc evm_increaseTime ${s}`); cast("rpc evm_mine"); };
 const { page, T, step } = h;
+const tab = (name) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name });
 
 const me = await h.onboard();
 await step("default deployment shows minutes; another deployment can be switched to in More → Demo token", async () => {
@@ -46,13 +47,13 @@ await step("wizard offers minutes and the Fast demo preset", async () => {
   await T("Protection is on");
 });
 await step("over-limit send is scheduled and not completable yet", async () => {
-  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await tab("Send").click();
   await page.getByLabel("To").fill(THIEF);
   await page.getByLabel("Amount").fill("300");
   await page.getByText("wait 2 minutes").waitFor();
   await page.getByRole("button", { name: "Schedule transfer" }).click();
   await T("Scheduled");
-  await page.getByRole("button", { name: /Waiting/ }).click();
+  await tab("Waiting").click();
   await page.getByText(/Ready in 1m|Ready in 2m/).waitFor();
   if (await page.getByRole("button", { name: "Complete" }).count()) throw new Error("completable too early");
 });

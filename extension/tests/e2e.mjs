@@ -65,6 +65,7 @@ let [sw] = ctx.serviceWorkers(); if (!sw) sw = await ctx.waitForEvent("servicewo
 const id = sw.url().split("/")[2];
 page = await ctx.newPage();
 page.on("pageerror", (e) => console.log("   PAGEERR", e.message));
+const tab = (name) => page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name });
 const T = (t) => page.getByText(t, { exact: false }).first().waitFor({ timeout: 60000 });
 const state = () => page.evaluate(async () => (await chrome.runtime.sendMessage({ t: "state" })).data);
 const lockAndReload = async () => { await page.evaluate(() => chrome.runtime.sendMessage({ t: "lock" })); await page.reload(); };
@@ -135,7 +136,7 @@ await step("protection wizard validates and turns protection on", async () => {
 await page.screenshot({ path: join(tmpdir(), "pw-e2e-wallet.png"), fullPage: true });
 console.log("\nSending rules");
 await step("small send goes out instantly", async () => {
-  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await tab("Send").click();
   await page.getByLabel("To").fill(THIEF);
   await page.getByLabel("Amount").fill("500");
   await page.getByText("goes out right away").waitFor();
@@ -150,14 +151,14 @@ await step("big send is scheduled, not sent, and can be stopped", async () => {
   await page.getByRole("button", { name: "Schedule transfer" }).click();
   await T("Scheduled");
   if (bal(THIEF) !== "500000000") throw new Error("money moved");
-  await page.getByRole("button", { name: /Waiting/ }).click();
+  await tab("Waiting").click();
   await page.getByText("Ready in").waitFor();
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await T("Transfer stopped");
   await page.getByText("Nothing is waiting").waitFor();
 });
 await step("over-balance amount is blocked in the form", async () => {
-  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await tab("Send").click();
   await page.getByLabel("To").fill(THIEF);
   await page.getByLabel("Amount").fill("999999");
   await page.getByText(/is ready to use/).first().waitFor();
@@ -225,7 +226,7 @@ console.log("\nGuard");
 await page.bringToFront();
 await step("watched wallet shows the queued transfer and it can be stopped", async () => {
   await page.reload();
-  await page.getByRole("button", { name: /Guard/ }).click();
+  await tab("Guard").click();
   await page.getByLabel("Wallet to watch").fill(me);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByText("Ready in").first().waitFor({ timeout: 30000 });
@@ -235,7 +236,7 @@ await step("watched wallet shows the queued transfer and it can be stopped", asy
 
 console.log("\nEmergency PIN");
 await step("queue a transfer, set PIN, unlock with PIN → sweep + decoy", async () => {
-  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await tab("Send").click();
   await page.getByLabel("To").fill(THIEF);
   await page.getByLabel("Amount").fill("3000");
   await page.getByRole("button", { name: "Schedule transfer" }).click();
@@ -260,7 +261,7 @@ await step("decoy cannot sign; real password still works", async () => {
   await lockAndReload();
   await page.getByLabel("Password").fill(PW);
   await page.getByRole("button", { name: "Unlock" }).click();
-  await T("Ready to use");
+  await T("Total balance");
 });
 await step("recovery phrase needs the password", async () => {
   await page.getByRole("button", { name: "More" }).click();
