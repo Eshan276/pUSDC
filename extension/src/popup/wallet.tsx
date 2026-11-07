@@ -161,7 +161,7 @@ export function ActionRow({ actions }: { actions: { label: string; icon: typeof 
     <div className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }} role="group" aria-label="Actions">
       {actions.map(({ label, icon: Icon, onClick, badge }) => (
         <button key={label} onClick={onClick} className="group relative flex flex-col items-center gap-1.5 rounded-xl py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span className="relative grid size-12 place-items-center rounded-full bg-ink text-white transition-colors group-hover:bg-ink-hover group-active:scale-95">
+          <span className="relative grid size-12 place-items-center rounded-full bg-primary text-primary-foreground transition-all group-hover:brightness-95 group-active:scale-95">
             <Icon className="size-5" aria-hidden />
             {!!badge && <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-warning-foreground text-[10px] text-warning-soft">{badge}</span>}
           </span>
