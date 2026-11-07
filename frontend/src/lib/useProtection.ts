@@ -70,6 +70,8 @@ export function useProtection(account?: Address, refetchInterval = 5000) {
       offDelay: Number(prot.offDelay),
       lockDuration: Number(prot.lockDuration),
       flagOffAt: Number(prot.flagOffAt),
+      fastLane: prot.fastLane,
+      fastLaneAt: Number(prot.fastLaneAt),
       dailyRemaining: remaining,
       pendingChanges: { 0: toChange(c0), 1: toChange(c1), 2: toChange(c2), 3: toChange(c3) } as Record<number, PendingChange | undefined>,
       pendingBackup: bkp[1] > 0n ? { backup: bkp[0], effectiveAt: Number(bkp[1]) } : undefined,
@@ -88,3 +90,19 @@ export function isStricter(param: number, value: bigint, current: bigint) {
   return param === 0 ? value <= current : value >= current;
 }
 
+
+/* Backups this browser has set for an account. Used to spot a hijacked setup (someone else holding the same key
+   front-ran protect() with their own backup). Stored locally only. */
+const backupsKey = (a: Address) => `protected-usdc:backups:${a.toLowerCase()}`;
+export function rememberBackup(account: Address, backup: Address) {
+  const list = knownBackups(account);
+  if (!list.includes(backup.toLowerCase())) list.push(backup.toLowerCase());
+  localStorage.setItem(backupsKey(account), JSON.stringify(list));
+}
+export function knownBackups(account: Address): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(backupsKey(account)) ?? "[]");
+  } catch {
+    return [];
+  }
+}

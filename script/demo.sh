@@ -70,11 +70,13 @@ cast chain-id --rpc-url "$RPC" >/dev/null 2>&1 || { echo "No node at $RPC. Start
 say "Setup: deploy pUSDC on the fork"
 forge build --silent
 PUSDC=$(forge create src/ProtectedWrapper.sol:ProtectedWrapper --rpc-url "$RPC" --private-key $ALICE_KEY --broadcast \
-        --constructor-args $USDC "Protected USDC" pUSDC | awk '/Deployed to:/{print $3}')
+        --constructor-args $USDC "Protected USDC" pUSDC "(86400,604800,86400)" | awk '/Deployed to:/{print $3}')
 note "pUSDC deployed at $PUSDC"
 
 say "a. Whale wraps 1M USDC, seeds a pUSDC/USDC Uniswap V2 pool, sends alice 100k USDC; alice wraps it"
 cast rpc anvil_setBalance $WHALE 0x56BC75E2D63100000 --rpc-url "$RPC" >/dev/null   # 100 ETH for gas
+# Anvil's dev keys are public, and some have EIP-7702 code on mainnet. Make alice a plain wallet again.
+cast rpc anvil_setCode $ALICE 0x --rpc-url "$RPC" >/dev/null
 send --unlocked --from $WHALE $USDC 'approve(address,uint256)' $PUSDC 2000000000000
 send --unlocked --from $WHALE $PUSDC 'deposit(uint256)' 1000000000000
 send --unlocked --from $WHALE $USDC  'approve(address,uint256)' $ROUTER 2000000000000
@@ -93,14 +95,18 @@ swap $ALICE_KEY 20000000000 $PUSDC $USDC $ALICE
 show; pause
 
 say "c. Alice turns protection ON (instant): backup wallet, 1,000/day limit, 72h hold, 7d off-delay, 14d lock"
-send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64)' $BACKUP 1000000000 259200 604800 1209600
+send --private-key $ALICE_KEY $PUSDC 'protect(address,uint256,uint64,uint64,uint64,bool)' $BACKUP 1000000000 259200 604800 1209600 false
 note "isProtected(alice) = $(cast call $PUSDC 'isProtected(address)(bool)' $ALICE --rpc-url "$RPC")"
 note "Small swap of 500 pUSDC:"
 swap $ALICE_KEY 500000000 $PUSDC $USDC $ALICE; note "OK"
 note "Large swap of 10,000 pUSDC:"
 expect_fail --private-key $ALICE_KEY $ROUTER 'swapExactTokensForTokens(uint256,uint256,address[],address,uint256)' 10000000000 0 "[$PUSDC,$USDC]" $ALICE $DEADLINE
-note "Large plain transfer of 10,000 pUSDC:"
-expect_fail --private-key $ALICE_KEY $PUSDC 'transfer(address,uint256)' $ATTACKER 10000000000
+note "Large plain send of 10,000 pUSDC from the wallet (like MetaMask 'Send'):"
+send --private-key $ALICE_KEY $PUSDC 'transfer(address,uint256)' $ATTACKER 10000000000
+ID=$(cast call $PUSDC 'queuedTransferCount()(uint256)' --rpc-url "$RPC" | num)
+note "Shows as successful, but it was SCHEDULED as transfer #$ID (arrives in 72h); nothing left the wallet."
+note "reservedOf(alice) = $(usd "$(cast call $PUSDC 'reservedOf(address)(uint256)' $ALICE --rpc-url "$RPC" | num)") pUSDC. Backup cancels it:"
+send --private-key $BACKUP_KEY $PUSDC 'cancelTransfer(uint256)' "$ID"; note "Cancelled."
 show; pause
 
 say "d. ATTACKER (using alice's stolen key) queues a transfer of everything to themselves"
@@ -120,7 +126,9 @@ say "e. Attacker requests flag-off, then waits 6 days (the delay is 7)"
 send --private-key $ALICE_KEY $PUSDC 'requestFlagOff()'
 warp 518400
 note "isProtected(alice) = $(cast call $PUSDC 'isProtected(address)(bool)' $ALICE --rpc-url "$RPC")"
-expect_fail --private-key $ALICE_KEY $PUSDC 'transfer(address,uint256)' $ATTACKER 10000000000
+note "Attacker hits 'Send all' in a wallet app: scheduled, not sent (the stress below cancels it):"
+send --private-key $ALICE_KEY $PUSDC 'transfer(address,uint256)' $ATTACKER "$(cast call $PUSDC 'availableBalanceOf(address)(uint256)' $ALICE --rpc-url "$RPC" | num)"
+note "attacker balance: $(usd "$(pbal $ATTACKER)") pUSDC"
 pause
 
 say "f. STRESS: backup sweeps everything to itself and locks it for 14 days"

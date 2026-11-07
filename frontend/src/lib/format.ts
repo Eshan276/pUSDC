@@ -30,6 +30,10 @@ export const shortAddr = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}
 /** 259200 -> "3 days", 3600 -> "1 hour". */
 export function fmtDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
+  if (s >= 3600 && s % DAY !== 0 && s % 3600 === 0 && s < 7 * DAY) {
+    const h = s / 3600;
+    return `${h} hour${h === 1 ? "" : "s"}`;
+  }
   if (s >= DAY) {
     const d = s / DAY;
     const r = Number.isInteger(d) ? d : Math.round(d * 10) / 10;
@@ -65,3 +69,7 @@ export function addressProblem(v: string, empty = "Enter a wallet address."): st
   // Mixed-case addresses carry a checksum; a mismatch usually means a typo.
   if (!isAddress(v)) return "This address has a capital-letter mistake. Copy it again from your wallet, or paste it in all lowercase.";
 }
+
+const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+/** 12000000000n (6 decimals) -> "$12,000.00". pUSDC and USDC are both pegged 1:1 to a dollar. */
+export const fmtUsd = (v: bigint) => usdFmt.format(Number(formatUnits(v, DECIMALS)));

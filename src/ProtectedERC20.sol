@@ -77,15 +77,40 @@ pragma solidity ^0.8.24;
  *     but already-queued transfers stay valid: they can still be executed after
  *     their hold, or cancelled by the owner or the last backup.
  *
- * 12. Bounds. Protocol minimums stop protection from being meaningless (a 0s
- *     hold or delay). Maximums stop a typo or a coerced user from freezing funds
- *     for decades. See the MIN_* and MAX_* constants.
+ * 12. Bounds. Minimums stop protection from being meaningless (a 0s hold or
+ *     delay). Maximums stop a typo or a coerced user from freezing funds for
+ *     decades. Maximums are constants. Minimums are set once in the constructor
+ *     (immutable, no admin): production deployments use the DEFAULT_MIN_*
+ *     values (1-day hold, 7-day off-delay, 1-day lock); a test/demo deployment
+ *     may use minutes so the whole flow can be shown live. Every duration is in
+ *     seconds, so minutes, hours and days all work.
  *
  * 13. Revert errors. For accounts with nothing reserved or locked, an
  *     over-balance transfer still reverts with OpenZeppelin's standard
  *     `ERC20InsufficientBalance`, so unprotected accounts behave byte-for-byte
  *     like a plain ERC-20. Our own errors appear only when the protection rules
  *     cause the revert.
+ *
+ * 14. Fast lane (opt-in). If the holder enables `fastLane`, the backup wallet
+ *     can `approveTransfer(id)` to execute a queued transfer immediately, so a
+ *     big payment never needs protection switched off. An attacker holding only
+ *     the main key can't get the approval. Trade-off: if one person holds both
+ *     keys (e.g. two wallets on the same phone), a physical attacker can force
+ *     both, so it's off by default. Enabling it later is a loosening (delayed by
+ *     offDelay); disabling it is instant; stress() cancels a pending enable.
+ *     Choosing it in protect() is instant, like the rest of the initial setup.
+ *
+ * 15. Over-limit plain sends from a wallet are scheduled, not reverted. When a
+ *     protected EOA calls `transfer()` directly (msg.sender == tx.origin, no
+ *     code) with more than its remaining daily limit, the transfer is queued
+ *     exactly like `queueTransfer` and `true` is returned, so "Send" in any
+ *     wallet app just works (the recipient gets it after the hold). No
+ *     `Transfer` event is emitted until execution, so off-chain indexers don't
+ *     credit it early. `transferFrom`, and `transfer` from any contract or
+ *     code-bearing account (EIP-7702 included), still revert with
+ *     ExceedsDailyLimit. A contract may treat `true` as "tokens moved" (e.g. a
+ *     lender crediting a deposit), and a holder who is also their own backup
+ *     could then cancel and keep both.
  *
  * No owner, no admin, no upgradeability, no fees.
  */
@@ -98,12 +123,19 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     // ───────────────────────────── constants ─────────────────────────────
 
     uint64 public constant LIMIT_PERIOD = 1 days;
-    uint64 public constant MIN_OFF_DELAY = 7 days;
     uint64 public constant MAX_OFF_DELAY = 365 days;
-    uint64 public constant MIN_HOLD_WINDOW = 1 days;
     uint64 public constant MAX_HOLD_WINDOW = 30 days;
-    uint64 public constant MIN_LOCK_DURATION = 1 days;
     uint64 public constant MAX_LOCK_DURATION = 365 days;
+
+    /// @notice Recommended minimums for production deployments.
+    uint64 public constant DEFAULT_MIN_HOLD_WINDOW = 1 days;
+    uint64 public constant DEFAULT_MIN_OFF_DELAY = 7 days;
+    uint64 public constant DEFAULT_MIN_LOCK_DURATION = 1 days;
+
+    /// @notice This deployment's minimums (seconds), fixed at construction (design note 12).
+    uint64 public immutable MIN_HOLD_WINDOW;
+    uint64 public immutable MIN_OFF_DELAY;
+    uint64 public immutable MIN_LOCK_DURATION;
 
     // ─────────────────────────────── types ───────────────────────────────
 
@@ -116,6 +148,13 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     }
 
     uint256 private constant PARAM_COUNT = 4;
+
+    /// @notice Per-deployment minimum durations, in seconds.
+    struct Minimums {
+        uint64 holdWindow;
+        uint64 offDelay;
+        uint64 lockDuration;
+    }
 
     enum TransferStatus {
         None,
@@ -132,6 +171,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     struct Protection {
         bool active;
         uint64 flagOffAt; // 0 = no flag-off pending
+        bool fastLane; // backup may approve queued transfers for immediate execution
+        uint64 fastLaneAt; // 0 = no fast-lane enable pending
         address backup;
         address pendingBackup;
         uint64 pendingBackupAt; // 0 = no backup change pending
@@ -167,6 +208,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         uint64 offDelay;
         uint64 lockDuration;
         uint64 flagOffAt;
+        bool fastLane;
+        uint64 fastLaneAt; // pending enable time, 0 if none
     }
 
     // ────────────────────────────── storage ──────────────────────────────
@@ -193,7 +236,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         uint256 dailyLimit,
         uint64 holdWindow,
         uint64 offDelay,
-        uint64 lockDuration
+        uint64 lockDuration,
+        bool fastLane
     );
     event FlagOffRequested(address indexed account, uint64 effectiveAt);
     event FlagOffCancelled(address indexed account);
@@ -212,6 +256,10 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     );
     event TransferCancelled(uint256 indexed id, address indexed by);
     event TransferExecuted(uint256 indexed id, address indexed by);
+    event TransferApproved(uint256 indexed id, address indexed backup);
+
+    event FastLaneUpdated(address indexed account, bool enabled);
+    event FastLaneChangeRequested(address indexed account, uint64 effectiveAt);
 
     event StressTriggered(
         address indexed account, address indexed backup, address indexed by, uint256 amount, uint64 lockedUntil
@@ -231,15 +279,33 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     error InsufficientUnlockedBalance(address account, uint256 amount, uint256 available);
     error TransferNotPending(uint256 id);
     error HoldNotExpired(uint256 id, uint64 executableAt);
+    error FastLaneOff(address account);
+    error InvalidMinimums();
 
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) ERC20Permit(name_) {}
+    constructor(string memory name_, string memory symbol_, Minimums memory mins)
+        ERC20(name_, symbol_)
+        ERC20Permit(name_)
+    {
+        if (
+            mins.holdWindow == 0 || mins.holdWindow > MAX_HOLD_WINDOW || mins.offDelay == 0
+                || mins.offDelay > MAX_OFF_DELAY || mins.lockDuration == 0 || mins.lockDuration > MAX_LOCK_DURATION
+        ) revert InvalidMinimums();
+        MIN_HOLD_WINDOW = mins.holdWindow;
+        MIN_OFF_DELAY = mins.offDelay;
+        MIN_LOCK_DURATION = mins.lockDuration;
+    }
 
     // ═════════════════════════ protection settings ═════════════════════════
 
-    /// @notice Turn protection on for `msg.sender`. Instant.
-    function protect(address backup, uint256 dailyLimit, uint64 holdWindow, uint64 offDelay, uint64 lockDuration)
-        external
-    {
+    /// @notice Turn protection on for `msg.sender`. Instant, including the initial fast-lane choice.
+    function protect(
+        address backup,
+        uint256 dailyLimit,
+        uint64 holdWindow,
+        uint64 offDelay,
+        uint64 lockDuration,
+        bool fastLane
+    ) external {
         _sync(msg.sender);
         Protection storage p = _protection[msg.sender];
         if (p.active) revert AlreadyProtected(msg.sender);
@@ -251,6 +317,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
 
         p.active = true;
         p.flagOffAt = 0;
+        p.fastLane = fastLane;
+        p.fastLaneAt = 0;
         p.backup = backup;
         p.pendingBackup = address(0);
         p.pendingBackupAt = 0;
@@ -261,7 +329,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         delete p.pending;
         delete _spend[msg.sender];
 
-        emit FlagOn(msg.sender, backup, dailyLimit, holdWindow, offDelay, lockDuration);
+        emit FlagOn(msg.sender, backup, dailyLimit, holdWindow, offDelay, lockDuration, fastLane);
     }
 
     /// @notice Schedule turning protection off after the current `offDelay`.
@@ -305,6 +373,20 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         emit ParamChangeCancelled(msg.sender, param);
     }
 
+    /// @notice Turn the fast lane off (instant) or on (a loosening: scheduled after `offDelay`).
+    function setFastLane(bool enabled) external {
+        Protection storage p = _requireActive(msg.sender);
+        if (!enabled) {
+            p.fastLane = false;
+            p.fastLaneAt = 0;
+            emit FastLaneUpdated(msg.sender, false);
+        } else if (!p.fastLane) {
+            uint64 at = uint64(block.timestamp) + uint64(p.params[uint256(Param.OffDelay)]);
+            p.fastLaneAt = at;
+            emit FastLaneChangeRequested(msg.sender, at);
+        }
+    }
+
     /// @notice Schedule a backup wallet change. Always delayed by `offDelay`.
     function requestBackupChange(address newBackup) external {
         Protection storage p = _requireActive(msg.sender);
@@ -334,25 +416,52 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
     /// @notice Queue a transfer that can be executed after the hold window. The tokens stay reserved
     ///         in the sender's balance until then.
     function queueTransfer(address to, uint256 amount) external nonReentrant returns (uint256 id) {
-        Protection storage p = _requireActive(msg.sender);
-        if (to == address(0) || to == msg.sender) revert InvalidRecipient(to);
-        if (amount == 0) revert ZeroAmount();
-        uint256 available = availableBalanceOf(msg.sender);
-        if (amount > available) revert InsufficientUnlockedBalance(msg.sender, amount, available);
+        return _queue(msg.sender, to, amount);
+    }
 
-        _reserved[msg.sender] += amount;
+    /// @notice Plain ERC-20 transfer, with one protected-account twist (design note 15): when a normal wallet (EOA)
+    ///         sends directly and the amount is over its remaining daily limit, the transfer is scheduled exactly like
+    ///         `queueTransfer` instead of reverting, and `true` is returned. No `Transfer` event is emitted until it
+    ///         executes, so nobody (exchanges, explorers) sees the tokens as delivered early.
+    ///         `transferFrom` never does this: DEXs and other contracts get a clean revert.
+    function transfer(address to, uint256 value) public virtual override returns (bool) {
+        address owner = _msgSender();
+        if (_shouldAutoQueue(owner, value)) {
+            _queue(owner, to, value);
+            return true;
+        }
+        return super.transfer(to, value);
+    }
+
+    function _shouldAutoQueue(address owner, uint256 value) private returns (bool) {
+        _sync(owner);
+        if (!_protection[owner].active) return false;
+        // Only a plain EOA sending its own transaction. Contracts and code-bearing accounts (incl. EIP-7702) get a
+        // revert, because a contract caller might treat "returned true" as "tokens moved".
+        if (owner != tx.origin || owner.code.length != 0) return false;
+        return value > dailyLimitRemaining(owner) && value <= availableBalanceOf(owner);
+    }
+
+    function _queue(address from, address to, uint256 amount) private returns (uint256 id) {
+        Protection storage p = _requireActive(from);
+        if (to == address(0) || to == from) revert InvalidRecipient(to);
+        if (amount == 0) revert ZeroAmount();
+        uint256 available = availableBalanceOf(from);
+        if (amount > available) revert InsufficientUnlockedBalance(from, amount, available);
+
+        _reserved[from] += amount;
         id = ++queuedTransferCount;
         uint64 executableAt = uint64(block.timestamp) + uint64(p.params[uint256(Param.HoldWindow)]);
         _queued[id] = QueuedTransfer({
-            from: msg.sender,
+            from: from,
             executableAt: executableAt,
             to: to,
-            epoch: _epoch[msg.sender],
+            epoch: _epoch[from],
             amount: amount,
             status: TransferStatus.Pending
         });
-        _queuedIds[msg.sender].push(id);
-        emit TransferQueued(id, msg.sender, to, amount, executableAt);
+        _queuedIds[from].push(id);
+        emit TransferQueued(id, from, to, amount, executableAt);
     }
 
     /// @notice Cancel a pending queued transfer. Callable by the sender or the sender's backup wallet.
@@ -372,7 +481,25 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         QueuedTransfer storage q = _queued[id];
         if (!_isPending(q)) revert TransferNotPending(id);
         if (block.timestamp < q.executableAt) revert HoldNotExpired(id, q.executableAt);
+        _executeQueued(id, q);
+    }
 
+    /// @notice Fast lane: the sender's backup wallet approves a queued transfer, which executes immediately.
+    /// @dev Only works while the sender is protected and has the fast lane enabled (design note 14).
+    function approveTransfer(uint256 id) external nonReentrant {
+        QueuedTransfer storage q = _queued[id];
+        if (!_isPending(q)) revert TransferNotPending(id);
+        address from = q.from;
+        _sync(from);
+        Protection storage p = _protection[from];
+        if (!p.active) revert NotProtected(from);
+        if (msg.sender != p.backup) revert Unauthorized(msg.sender);
+        if (!p.fastLane) revert FastLaneOff(from);
+        emit TransferApproved(id, msg.sender);
+        _executeQueued(id, q);
+    }
+
+    function _executeQueued(uint256 id, QueuedTransfer storage q) private {
         (address from, address to, uint256 amount) = (q.from, q.to, q.amount);
         q.status = TransferStatus.Executed;
         _reserved[from] -= amount;
@@ -401,6 +528,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
 
         // (b) Cancel every pending protection decrease.
         p.flagOffAt = 0;
+        p.fastLaneAt = 0;
         p.pendingBackup = address(0);
         p.pendingBackupAt = 0;
         delete p.pending;
@@ -440,6 +568,9 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         v.offDelay = uint64(_effectiveParam(p, Param.OffDelay));
         v.lockDuration = uint64(_effectiveParam(p, Param.LockDuration));
         v.flagOffAt = v.active ? p.flagOffAt : 0;
+        bool laneMatured = p.fastLaneAt != 0 && block.timestamp >= p.fastLaneAt;
+        v.fastLane = v.active && (p.fastLane || laneMatured);
+        v.fastLaneAt = v.active && !laneMatured ? p.fastLaneAt : 0;
     }
 
     /// @notice Time at which a pending flag-off takes effect (0 if none is pending).
@@ -556,6 +687,8 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         if (p.flagOffAt != 0 && block.timestamp >= p.flagOffAt) {
             p.active = false;
             p.flagOffAt = 0;
+            p.fastLane = false;
+            p.fastLaneAt = 0;
             p.pendingBackup = address(0);
             p.pendingBackupAt = 0;
             delete p.pending;
@@ -569,6 +702,12 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
             p.pendingBackup = address(0);
             p.pendingBackupAt = 0;
             emit BackupChanged(account, old, p.backup);
+        }
+
+        if (p.fastLaneAt != 0 && block.timestamp >= p.fastLaneAt) {
+            p.fastLane = true;
+            p.fastLaneAt = 0;
+            emit FastLaneUpdated(account, true);
         }
 
         for (uint256 i; i < PARAM_COUNT; ++i) {
@@ -620,7 +759,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         if (backup == address(0) || backup == account || backup == address(this)) revert InvalidBackup(backup);
     }
 
-    function _checkParam(Param param, uint256 value) private pure {
+    function _checkParam(Param param, uint256 value) private view {
         if (param == Param.DailyLimit) return;
         (uint64 lo, uint64 hi) = param == Param.HoldWindow
             ? (MIN_HOLD_WINDOW, MAX_HOLD_WINDOW)

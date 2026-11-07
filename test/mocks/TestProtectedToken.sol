@@ -5,7 +5,7 @@ import {ProtectedERC20} from "../../src/ProtectedERC20.sol";
 
 /// @dev Concrete ProtectedERC20 with an open mint, for unit tests only.
 contract TestProtectedToken is ProtectedERC20 {
-    constructor() ProtectedERC20("Test Protected", "tPT") {}
+    constructor() ProtectedERC20("Test Protected", "tPT", Minimums(1 days, 7 days, 1 days)) {}
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);

@@ -1,26 +1,35 @@
 # Brand: Protected USDC
 
-_Status: active_
+_Status: active. The web app and the browser extension share this theme and layout._
 
-**Feeling:** calm, warm and reassuring, like a seatbelt, not a vault door. Safety without fear.
+**Feeling:** calm, precise and flat, like a good terminal: lots of air, black ink, one confident blue. Safety without fear.
 
-## Palette (OKLCH tokens in `frontend/src/index.css`)
-| Token | Light | Use |
+## Logo
+A blue coin (`#005ac5`) holding a split white shield with a dollar sign. Master files are in `brand/`: `logo.svg` (clean vector, traced from the supplied artwork) and transparent PNGs at 16, 32, 48, 128, 256 and 512 px. It is used as the header mark and favicon in the web app and the browser extension (toolbar, notifications, wallet list, welcome screens). Always use the full-colour coin; on a blue background put it inside a white ring.
+
+## Palette (tokens in `frontend/src/index.css`, shared by the extension)
+| Token | Value | Use |
 | --- | --- | --- |
-| background | warm cream `oklch(0.985 0.008 85)` | page |
-| card | white | surfaces |
-| foreground | warm charcoal `oklch(0.25 0.02 60)` | text |
-| muted-foreground | `oklch(0.47 0.02 60)` | secondary text (AA on cream) |
-| primary | deep teal `oklch(0.47 0.09 185)` | safety, "you're protected", main actions |
-| warning-soft / -foreground | soft amber | anything waiting: scheduled transfers, pending changes |
-| danger | red `oklch(0.54 0.19 27)` | emergency only, never decoration |
+| background | `#f1f6fd` with a soft blue glow at the top | page |
+| card | white, 24px radius, gentle blue-tinted shadow | surfaces |
+| muted | `#eaf0fa` | token boxes, inputs |
+| foreground | `#0d1426` | text |
+| primary | blue `#2272d8` | main actions, active nav, progress, links |
+| primary-soft | `#e4eeff` | selected/active surfaces, "you're protected" |
+| warning-soft | soft amber | anything waiting: scheduled transfers, pending changes |
+| danger | red | emergency only, never decoration |
 
-Dark mode uses the same hues with lifted teal (`oklch(0.74 0.11 180)`) and warm near-black surfaces.
+Light only: there is no dark mode.
 
 ## Type
-- Plus Jakarta Sans (variable, self-hosted): UI and headings, extrabold for big numbers.
-- JetBrains Mono (variable, self-hosted): addresses only.
+- **DM Sans** (variable, self-hosted, optical sizing): everything, with big tabular numerals for amounts. Headings are medium weight.
+- **JetBrains Mono** (variable, self-hosted): addresses and small labels only.
 - No Google Fonts or other third-party requests.
+
+## Layout: an exchange in the web app, a wallet in the extension
+- **Web app:** a top bar with the logo, a pill nav (Swap, Send, Wallet, Protect, Backup), the network and a Connect / account pill. The swap card is the front page and works before connecting: "You pay" and "You receive" boxes with token pills, a flip arrow, rate / route / fee details and one big blue button whose label walks through Connect wallet, Enter an amount, Insufficient balance, Approve and Swap. USDC to pUSDC wraps 1:1; pUSDC to USDC unwraps 1:1 or, for a protected account, can be scheduled as a real Uniswap v4 swap. Pending scheduled transfers appear under the card.
+- **Extension:** a wallet popup: account switcher, one big balance, round actions, assets, activity, settings rows.
+- Buttons are large and rounded, filled blue; cards are big, white and softly shadowed.
 
 ## Voice
 - Plain words, second person: "You're protected", "Bigger transfers wait 3 days".
