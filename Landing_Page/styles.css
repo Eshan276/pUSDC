@@ -1699,3 +1699,17 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
 .hero-inner { top: calc(12.8svh + 30px); }
 .ascii { top: calc(9.3svh + 62px); }
 @media (max-width: 900px) { .hero-inner { top: 86px; } .ascii { top: auto; } }
+
+/* ───── Strip logos (official marks), muted until hovered ───── */
+.strip-track li { opacity: 1; }
+.strip-track li img { display: block; width: auto; height: calc(30 * var(--k)); min-height: 24px; filter: grayscale(1) contrast(1.05); opacity: 0.72; transition: filter 0.25s, opacity 0.25s, transform 0.25s; }
+.strip-track li:hover img { filter: none; opacity: 1; transform: translateY(-1px); }
+.strip-track li.w-mark svg { width: calc(26 * var(--k)); height: calc(26 * var(--k)); min-width: 20px; min-height: 20px; }
+@media (prefers-reduced-motion: reduce) { .strip-track li img { transition: none; } }
+
+/* Full colour so each mark stays recognisable */
+.strip-track li img { filter: none; opacity: 1; }
+.strip-track li:hover img { filter: none; opacity: 1; transform: translateY(-2px); }
+.strip-track li { opacity: 0.95; }
+.strip-track li img[src$="uniswap.svg"] { height: calc(40 * var(--k)); min-height: 32px; }
+.strip-track li img[src$="usdc.svg"] { height: calc(34 * var(--k)); min-height: 27px; }
