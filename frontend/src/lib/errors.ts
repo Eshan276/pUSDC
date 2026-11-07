@@ -32,6 +32,8 @@ export function friendlyError(err: unknown): string | null {
         return "Please double-check the recipient address.";
       case "ZeroAmount":
         return "Enter an amount greater than zero.";
+      case "FastLaneOff":
+        return "Instant approval by the backup is turned off for this wallet. The transfer goes through after its waiting time.";
       case "NothingPending":
         return "There's nothing pending to cancel.";
       case "ERC20InsufficientBalance":

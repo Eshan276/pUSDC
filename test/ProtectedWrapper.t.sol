@@ -24,7 +24,7 @@ contract ProtectedWrapperTest is Test {
     function setUp() public {
         vm.warp(START);
         usdc = new MockERC20("USD Coin", "USDC", 6);
-        pusdc = new ProtectedWrapper(usdc, "Protected USDC", "pUSDC");
+        pusdc = new ProtectedWrapper(usdc, "Protected USDC", "pUSDC", ProtectedERC20.Minimums(1 days, 7 days, 1 days));
         usdc.mint(alice, 1_000e6);
         vm.startPrank(alice);
         usdc.approve(address(pusdc), type(uint256).max);
@@ -34,7 +34,7 @@ contract ProtectedWrapperTest is Test {
 
     function _protect() internal {
         vm.prank(alice);
-        pusdc.protect(bob, LIMIT, HOLD, OFF, LOCK);
+        pusdc.protect(bob, LIMIT, HOLD, OFF, LOCK, false);
     }
 
     function test_Metadata() public view {
@@ -45,7 +45,7 @@ contract ProtectedWrapperTest is Test {
 
     function test_Constructor_RejectsZeroUnderlying() public {
         vm.expectRevert(ProtectedWrapper.InvalidUnderlying.selector);
-        new ProtectedWrapper(MockERC20(address(0)), "x", "x");
+        new ProtectedWrapper(MockERC20(address(0)), "x", "x", ProtectedERC20.Minimums(1 days, 7 days, 1 days));
     }
 
     function test_DepositWithdraw_OneToOne() public {
@@ -147,4 +147,72 @@ contract ProtectedWrapperTest is Test {
         assertEq(usdc.balanceOf(bob), 1_000e6);
         assertEq(pusdc.totalSupply(), 0);
     }
+
+    function test_AutoQueue_WalletSendToWrapperSchedulesUnwrap() public {
+        _protect();
+        vm.prank(alice, alice); // "Send pUSDC to the pUSDC contract" from a wallet app
+        pusdc.transfer(address(pusdc), 900e6);
+        assertEq(usdc.balanceOf(alice), 0);
+        assertEq(pusdc.reservedOf(alice), 900e6);
+        uint256 id = pusdc.pendingTransferIds(alice)[0];
+        vm.warp(START + HOLD);
+        pusdc.executeTransfer(id);
+        assertEq(usdc.balanceOf(alice), 900e6);
+    }
+
+    // ═════════════ per-deployment minimums (minutes for demos, days for production) ═════════════
+
+    function test_Minimums_ConstructorRejectsZeroOrAboveMax() public {
+        vm.expectRevert(ProtectedERC20.InvalidMinimums.selector);
+        new ProtectedWrapper(usdc, "x", "x", ProtectedERC20.Minimums(0, 7 days, 1 days));
+        vm.expectRevert(ProtectedERC20.InvalidMinimums.selector);
+        new ProtectedWrapper(usdc, "x", "x", ProtectedERC20.Minimums(1 days, 366 days, 1 days));
+        vm.expectRevert(ProtectedERC20.InvalidMinimums.selector);
+        new ProtectedWrapper(usdc, "x", "x", ProtectedERC20.Minimums(31 days, 7 days, 1 days));
+    }
+
+    function test_Minimums_DefaultsExposed() public view {
+        assertEq(pusdc.MIN_HOLD_WINDOW(), pusdc.DEFAULT_MIN_HOLD_WINDOW());
+        assertEq(pusdc.MIN_OFF_DELAY(), 7 days);
+        assertEq(pusdc.MIN_LOCK_DURATION(), 1 days);
+    }
+
+    function test_Minimums_MinuteDeploymentWorksEndToEnd() public {
+        ProtectedWrapper fast = new ProtectedWrapper(
+            usdc, "Protected USDC", "pUSDC", ProtectedERC20.Minimums(1 minutes, 2 minutes, 1 minutes)
+        );
+        usdc.mint(alice, 1_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(fast), type(uint256).max);
+        fast.deposit(1_000e6);
+
+        // Below this deployment's minimums is still rejected.
+        vm.expectRevert(
+            abi.encodeWithSelector(ProtectedERC20.InvalidParam.selector, ProtectedERC20.Param.HoldWindow, 30)
+        );
+        fast.protect(bob, LIMIT, 30 seconds, 2 minutes, 1 minutes, false);
+
+        fast.protect(bob, LIMIT, 5 minutes, 2 minutes, 1 minutes, false);
+        uint256 id = fast.queueTransfer(carol, 500e6);
+        fast.requestFlagOff();
+        vm.stopPrank();
+
+        vm.warp(START + 5 minutes - 1);
+        vm.expectRevert(abi.encodeWithSelector(ProtectedERC20.HoldNotExpired.selector, id, uint64(START + 5 minutes)));
+        fast.executeTransfer(id);
+        vm.warp(START + 5 minutes);
+        fast.executeTransfer(id);
+        assertEq(fast.balanceOf(carol), 500e6);
+        assertFalse(fast.isProtected(alice)); // flag-off matured after 2 minutes
+
+        // The stress lock works in minutes too.
+        vm.prank(alice);
+        fast.protect(bob, LIMIT, 1 minutes, 2 minutes, 3 minutes, false);
+        vm.prank(bob);
+        fast.stress(alice);
+        (uint256 locked, uint64 until) = fast.lockOf(bob);
+        assertEq(locked, 500e6);
+        assertEq(until, START + 5 minutes + 3 minutes);
+    }
 }
+

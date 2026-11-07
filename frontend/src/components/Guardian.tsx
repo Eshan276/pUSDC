@@ -132,7 +132,7 @@ function Watched({ account, me, onRemove }: { account: Address; me: Address; onR
         )}
       </Card>
       <div className="lg:col-span-2">
-        <PendingList title="Their scheduled transfers" transfers={data.pending} loading={data.pendingLoading} role={amBackup ? "backup" : "owner"} />
+        <PendingList title="Their scheduled transfers" transfers={data.pending} loading={data.pendingLoading} role={amBackup ? "backup" : "watcher"} fastLane={data.fastLane && amBackup} />
       </div>
     </div>
   );

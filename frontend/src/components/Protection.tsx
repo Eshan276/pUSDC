@@ -1,26 +1,45 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatUnits, getAddress, type Address } from "viem";
-import { ArrowLeft, ArrowRight, Check, Clock, LifeBuoy, Pencil, ShieldCheck, Wallet, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Clock, FastForward, Send, KeyRound, LifeBuoy, PackageOpen, Pencil, ShieldCheck, TriangleAlert, Wallet, Zap } from "lucide-react";
 import { pusdcAbi } from "../abi";
-import { BOUNDS, DAY, DECIMALS, IS_TESTNET, Param, PUSDC, type ParamId } from "../config";
+import { DECIMALS, IS_TESTNET, Param, PUSDC, type ParamId } from "../config";
+import { durationError, fromSeconds, toSeconds, useBounds, type Bound, type Dur, type Unit } from "../lib/duration";
 import { addressProblem, fmtAmount, fmtCountdown, fmtDate, fmtDuration, parseAmount, shortAddr } from "../lib/format";
-import { isStricter, type ProtectionData } from "../lib/useProtection";
+import { isStricter, rememberBackup, type ProtectionData } from "../lib/useProtection";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Field, HoldButton, Notice, inputClass, useNow } from "./ui";
 
 const p = { address: PUSDC, abi: pusdcAbi } as const;
 
-type Settings = { limit: string; hold: string; off: string; lock: string };
-const PRESETS: { id: string; title: string; body: string; s: Settings }[] = [
-  { id: "everyday", title: "Everyday", body: "For money you spend. Up to 1,000 a day is instant; more waits 3 days.", s: { limit: "1000", hold: "3", off: "7", lock: "7" } },
-  { id: "savings", title: "Savings", body: "For money you rarely touch. 100 a day is instant; more waits a week.", s: { limit: "100", hold: "7", off: "30", lock: "30" } },
-  { id: "custom", title: "Custom", body: "Choose every number yourself.", s: { limit: "500", hold: "1", off: "7", lock: "1" } },
-];
+type Settings = { limit: string; hold: Dur; off: Dur; lock: Dur };
+const d = (n: number, unit: Unit): Dur => ({ n: String(n), unit });
+const EVERYDAY: Settings = { limit: "1000", hold: d(3, "days"), off: d(7, "days"), lock: d(7, "days") };
+const SAVINGS: Settings = { limit: "100", hold: d(7, "days"), off: d(30, "days"), lock: d(30, "days") };
+const QUICK: Settings = { limit: "100", hold: d(2, "minutes"), off: d(5, "minutes"), lock: d(3, "minutes") };
 
-function daysError(v: string, b: { min: number; max: number }) {
-  const n = Number(v);
-  if (!/^\d+$/.test(v) || n < b.min || n > b.max) return `Choose a whole number of days from ${b.min} to ${b.max}.`;
+function presetsFor(isDemo: boolean): { id: string; title: string; body: string; s?: Settings }[] {
+  return [
+    ...(isDemo ? [{ id: "quick", title: "Quick demo", body: "Minutes instead of days, so you can watch everything happen live.", s: QUICK }] : []),
+    { id: "everyday", title: "Everyday", body: "For money you spend. Up to 1,000 a day is instant; more waits 3 days.", s: EVERYDAY },
+    { id: "savings", title: "Savings", body: "For money you rarely touch. 100 a day is instant; more waits a week.", s: SAVINGS },
+    { id: "custom", title: "Custom", body: "Choose every number yourself, in minutes, hours or days." },
+  ];
 }
+
+/** A whole number plus a minutes/hours/days picker. */
+function DurationInput({ id, value, onChange, invalid }: { id: string; value: Dur; onChange: (d: Dur) => void; invalid?: boolean }) {
+  return (
+    <div className="flex gap-2">
+      <input id={id} inputMode="numeric" value={value.n} aria-invalid={invalid} onChange={(e) => onChange({ ...value, n: e.target.value.trim() })} className={`${inputClass} min-w-0 flex-1`} />
+      <select aria-label="Unit" value={value.unit} onChange={(e) => onChange({ ...value, unit: e.target.value as Unit })} className={inputClass.replace("w-full", "w-32 shrink-0")}>
+        <option value="minutes">minutes</option>
+        <option value="hours">hours</option>
+        <option value="days">days</option>
+      </select>
+    </div>
+  );
+}
+
 function limitError(v: string) {
   if (v.trim() === "0") return;
   if (!parseAmount(v)) return "Enter an amount (0 means every transfer waits).";
@@ -28,12 +47,12 @@ function limitError(v: string) {
 const limitUnits = (v: string) => (v.trim() === "0" ? 0n : parseAmount(v) ?? 0n);
 
 export function ProtectionPanel({ d, address }: { d: ProtectionData; address: Address }) {
-  if (!d.protected) return <SetupWizard address={address} />;
+  if (!d.protected) return <SetupWizard address={address} hasFunds={d.balance > 0n} />;
   return (
     <div className="grid gap-6 lg:grid-cols-5">
       <div className="space-y-6 lg:col-span-3">
         <SettingsCard d={d} address={address} />
-        <TurnOffCard d={d} />
+        <TurnOffCard d={d} address={address} />
       </div>
       <div className="lg:col-span-2">
         <EmergencyCard d={d} address={address} />
@@ -44,15 +63,26 @@ export function ProtectionPanel({ d, address }: { d: ProtectionData; address: Ad
 
 /* ───────────────────────── setup wizard ───────────────────────── */
 
-function SetupWizard({ address }: { address: Address }) {
+function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolean }) {
   const { run, busy } = useTx();
   const [step, setStep] = useState(0);
   const [backup, setBackup] = useState("");
   const [owns, setOwns] = useState(false);
-  const [preset, setPreset] = useState("everyday");
-  const [custom, setCustom] = useState<Settings>(PRESETS[2].s);
+  const bounds = useBounds();
+  const presets = presetsFor(bounds.isDemo);
+  const [preset, setPreset] = useState(bounds.isDemo ? "quick" : "everyday");
+  const [custom, setCustom] = useState<Settings>(bounds.isDemo ? QUICK : { limit: "500", hold: d(1, "days"), off: d(7, "days"), lock: d(1, "days") });
+  const [picked, setPicked] = useState(false);
+  // Bounds arrive from the contract after the first render: on a demo deployment, start on "Quick demo".
+  useEffect(() => {
+    if (bounds.loaded && bounds.isDemo && !picked) {
+      setPreset("quick");
+      setCustom(QUICK);
+    }
+  }, [bounds.loaded, bounds.isDemo, picked]);
+  const [fastLane, setFastLane] = useState(false);
   const [tried, setTried] = useState(false);
-  const s = preset === "custom" ? custom : PRESETS.find((x) => x.id === preset)!.s;
+  const s = (preset === "custom" ? custom : presets.find((x) => x.id === preset)?.s) ?? EVERYDAY;
 
   const backupError =
     addressProblem(backup, "Enter your backup wallet's address.") ??
@@ -63,9 +93,9 @@ function SetupWizard({ address }: { address: Address }) {
           : undefined);
   const errs = {
     limit: limitError(s.limit),
-    hold: daysError(s.hold, BOUNDS.hold),
-    off: daysError(s.off, BOUNDS.offDelay),
-    lock: daysError(s.lock, BOUNDS.lock),
+    hold: durationError(s.hold, bounds.hold),
+    off: durationError(s.off, bounds.offDelay),
+    lock: durationError(s.lock, bounds.lock),
   };
   const settingsOk = !Object.values(errs).some(Boolean);
 
@@ -76,12 +106,19 @@ function SetupWizard({ address }: { address: Address }) {
     setTried(false);
     setStep(step + 1);
   };
-  const turnOn = () =>
-    run(
+  const turnOn = async () => {
+    // Remember the backup we chose, so the dashboard can flag a hijacked setup.
+    rememberBackup(address, getAddress(backup));
+    await run(
       "protect",
-      { ...p, functionName: "protect", args: [getAddress(backup), limitUnits(s.limit), BigInt(+s.hold * DAY), BigInt(+s.off * DAY), BigInt(+s.lock * DAY)] },
+      {
+        ...p,
+        functionName: "protect",
+        args: [getAddress(backup), limitUnits(s.limit), BigInt(toSeconds(s.hold)), BigInt(toSeconds(s.off)), BigInt(toSeconds(s.lock)), fastLane],
+      },
       "You're protected 🎉",
     );
+  };
 
   const steps = ["Backup wallet", "Your limits", "Review"];
   return (
@@ -110,6 +147,10 @@ function SetupWizard({ address }: { address: Address }) {
           <Field label="Backup wallet address" htmlFor="backup" error={tried ? backupError : undefined} hint="Tip: don't use a wallet on this same device. If this one is stolen, that one might be too.">
             <input id="backup" autoComplete="off" spellCheck={false} placeholder="0x…" value={backup} onChange={(e) => setBackup(e.target.value.trim())} className={`${inputClass} font-mono text-sm`} />
           </Field>
+          <Notice tone={hasFunds ? "warning" : "info"} icon={<KeyRound />} title="Best on a fresh wallet">
+            Protection guards against theft from now on. If anyone might already have this wallet's key, set up protection on a brand-new
+            wallet instead, then move your funds in.{hasFunds ? " This wallet already holds funds, so be sure its key has never been exposed." : ""}
+          </Notice>
           <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl bg-muted p-4 text-sm">
             <input type="checkbox" checked={owns} onChange={(e) => setOwns(e.target.checked)} className="mt-0.5 size-5 accent-[var(--primary)]" />
             <span>I control this wallet and its recovery phrase is saved somewhere safe.</span>
@@ -123,13 +164,13 @@ function SetupWizard({ address }: { address: Address }) {
             <h2 className="text-xl font-bold">How careful should it be?</h2>
             <p className="mt-1 text-sm text-muted-foreground">You can tighten these any time, instantly. Loosening them later takes a waiting period.</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Protection style">
-            {PRESETS.map((x) => (
+          <div className={`grid gap-3 sm:grid-cols-2 ${presets.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"}`} role="radiogroup" aria-label="Protection style">
+            {presets.map((x) => (
               <button
                 key={x.id}
                 role="radio"
                 aria-checked={preset === x.id}
-                onClick={() => setPreset(x.id)}
+                onClick={() => (setPreset(x.id), setPicked(true))}
                 className={`rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${preset === x.id ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}
               >
                 <span className="flex items-center justify-between font-bold">
@@ -144,19 +185,29 @@ function SetupWizard({ address }: { address: Address }) {
               <Field label="Instant spending per day (pUSDC)" htmlFor="c-limit" error={tried ? errs.limit : undefined}>
                 <input id="c-limit" inputMode="decimal" value={custom.limit} onChange={(e) => setCustom({ ...custom, limit: e.target.value })} className={inputClass} />
               </Field>
-              <Field label="Bigger transfers wait (days)" htmlFor="c-hold" error={tried ? errs.hold : undefined} hint={`${BOUNDS.hold.min}–${BOUNDS.hold.max} days`}>
-                <input id="c-hold" inputMode="numeric" value={custom.hold} onChange={(e) => setCustom({ ...custom, hold: e.target.value })} className={inputClass} />
+              <Field label="Bigger transfers wait" htmlFor="c-hold" error={tried ? errs.hold : undefined} hint={rangeHint(bounds.hold)}>
+                <DurationInput id="c-hold" value={custom.hold} invalid={tried && !!errs.hold} onChange={(v) => setCustom({ ...custom, hold: v })} />
               </Field>
-              <Field label="Loosening settings waits (days)" htmlFor="c-off" error={tried ? errs.off : undefined} hint={`${BOUNDS.offDelay.min}–${BOUNDS.offDelay.max} days`}>
-                <input id="c-off" inputMode="numeric" value={custom.off} onChange={(e) => setCustom({ ...custom, off: e.target.value })} className={inputClass} />
+              <Field label="Loosening settings waits" htmlFor="c-off" error={tried ? errs.off : undefined} hint={rangeHint(bounds.offDelay)}>
+                <DurationInput id="c-off" value={custom.off} invalid={tried && !!errs.off} onChange={(v) => setCustom({ ...custom, off: v })} />
               </Field>
-              <Field label="Emergency lock (days)" htmlFor="c-lock" error={tried ? errs.lock : undefined} hint={`${BOUNDS.lock.min}–${BOUNDS.lock.max} days`}>
-                <input id="c-lock" inputMode="numeric" value={custom.lock} onChange={(e) => setCustom({ ...custom, lock: e.target.value })} className={inputClass} />
+              <Field label="Emergency lock" htmlFor="c-lock" error={tried ? errs.lock : undefined} hint={rangeHint(bounds.lock)}>
+                <DurationInput id="c-lock" value={custom.lock} invalid={tried && !!errs.lock} onChange={(v) => setCustom({ ...custom, lock: v })} />
               </Field>
             </div>
           )}
-          {IS_TESTNET && preset !== "custom" && (
-            <p className="text-sm text-muted-foreground">Trying it out? Pick Custom with a 1-day wait, so you can watch a scheduled transfer go through tomorrow.</p>
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border border-border p-4 text-sm">
+            <input type="checkbox" checked={fastLane} onChange={(e) => setFastLane(e.target.checked)} className="mt-0.5 size-5 accent-[var(--primary)]" />
+            <span className="space-y-1">
+              <span className="block font-semibold">Let my backup approve big transfers instantly (optional)</span>
+              <span className="block text-muted-foreground">
+                Skip the wait when your backup says yes. Only turn this on if your backup is held by someone else, or kept somewhere you
+                can't reach quickly. Someone forcing you could otherwise make you approve with both.
+              </span>
+            </span>
+          </label>
+          {IS_TESTNET && !bounds.isDemo && preset !== "custom" && (
+            <p className="text-sm text-muted-foreground">Trying it out? Pick Custom with the shortest waits, so you can watch a scheduled transfer go through.</p>
           )}
         </div>
       )}
@@ -167,10 +218,15 @@ function SetupWizard({ address }: { address: Address }) {
           <ul className="space-y-3">
             {[
               { icon: Zap, text: limitUnits(s.limit) > 0n ? `Up to ${fmtAmount(limitUnits(s.limit))} pUSDC a day goes out instantly.` : "Every transfer waits. Nothing goes out instantly." },
-              { icon: Clock, text: `Anything more waits ${fmtDuration(+s.hold * DAY)}. You or your backup can cancel it during that time.` },
+              { icon: Clock, text: `Anything more waits ${fmtDuration(toSeconds(s.hold))}. You or your backup can cancel it during that time.` },
               { icon: Wallet, text: `Your backup wallet is ${shortAddr(backup)}.` },
-              { icon: LifeBuoy, text: `In an emergency, everything moves to your backup and stays locked for ${fmtDuration(+s.lock * DAY)}.` },
-              { icon: ShieldCheck, text: `Turning protection off or loosening any setting takes ${fmtDuration(+s.off * DAY)}.` },
+              ...(fastLane ? [{ icon: FastForward, text: "Your backup can approve a big transfer to send it right away." }] : []),
+              {
+                icon: Send,
+                text: `Heads up: a big send from MetaMask or any other wallet app is scheduled too. Your wallet shows it as sent, but the recipient only gets it after ${fmtDuration(toSeconds(s.hold))}${fastLane ? " (or when your backup approves)" : ""}. Don't use big sends for payments that must arrive now.`,
+              },
+              { icon: LifeBuoy, text: `In an emergency, everything moves to your backup and stays locked for ${fmtDuration(toSeconds(s.lock))}.` },
+              { icon: ShieldCheck, text: `Turning protection off or loosening any setting takes ${fmtDuration(toSeconds(s.off))}.` },
             ].map(({ icon: Icon, text }) => (
               <li key={text} className="flex gap-3 rounded-2xl bg-muted p-4 text-sm">
                 <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
@@ -206,11 +262,13 @@ function SetupWizard({ address }: { address: Address }) {
 
 /* ───────────────────────── settings ───────────────────────── */
 
-const ROWS: { param: ParamId; label: string; help: string; unit: "amount" | "days"; bounds?: { min: number; max: number } }[] = [
+const rangeHint = (b: Bound) => `Between ${fmtDuration(b.min)} and ${fmtDuration(b.max)}`;
+
+const ROWS: { param: ParamId; label: string; help: string; unit: "amount" | "time"; bound?: "hold" | "offDelay" | "lock" }[] = [
   { param: Param.DailyLimit, label: "Instant spending per day", help: "Lower is safer.", unit: "amount" },
-  { param: Param.HoldWindow, label: "Bigger transfers wait", help: "Longer gives you more time to react.", unit: "days", bounds: BOUNDS.hold },
-  { param: Param.OffDelay, label: "Loosening settings waits", help: "Also how long turning protection off takes.", unit: "days", bounds: BOUNDS.offDelay },
-  { param: Param.LockDuration, label: "Emergency lock", help: "How long funds stay locked after the emergency button.", unit: "days", bounds: BOUNDS.lock },
+  { param: Param.HoldWindow, label: "Bigger transfers wait", help: "Longer gives you more time to react.", unit: "time", bound: "hold" },
+  { param: Param.OffDelay, label: "Loosening settings waits", help: "Also how long turning protection off takes.", unit: "time", bound: "offDelay" },
+  { param: Param.LockDuration, label: "Emergency lock", help: "How long funds stay locked after the emergency button.", unit: "time", bound: "lock" },
 ];
 
 function SettingsCard({ d, address }: { d: ProtectionData; address: Address }) {
@@ -223,6 +281,7 @@ function SettingsCard({ d, address }: { d: ProtectionData; address: Address }) {
         {ROWS.map((r) => (
           <ParamRow key={r.param} row={r} current={current[r.param]} d={d} />
         ))}
+        <FastLaneRow d={d} />
         <BackupRow d={d} address={address} />
       </ul>
     </Card>
@@ -232,10 +291,12 @@ function SettingsCard({ d, address }: { d: ProtectionData; address: Address }) {
 function ParamRow({ row, current, d }: { row: (typeof ROWS)[number]; current: bigint; d: ProtectionData }) {
   const { run, busy } = useTx();
   const [editing, setEditing] = useState(false);
+  const bounds = useBounds();
   const [v, setV] = useState("");
+  const [dur, setDur] = useState<Dur>({ n: "", unit: "days" });
   const show = (x: bigint) => (row.unit === "amount" ? `${fmtAmount(x)} pUSDC` : fmtDuration(Number(x)));
-  const err = row.unit === "amount" ? limitError(v) : daysError(v, row.bounds!);
-  const value = err ? 0n : row.unit === "amount" ? limitUnits(v) : BigInt(Number(v) * DAY);
+  const err = row.unit === "amount" ? limitError(v) : durationError(dur, bounds[row.bound!]);
+  const value = err ? 0n : row.unit === "amount" ? limitUnits(v) : BigInt(toSeconds(dur));
   const instant = !err && isStricter(row.param, value, current);
   const id = `param-${row.param}`;
 
@@ -260,7 +321,7 @@ function ParamRow({ row, current, d }: { row: (typeof ROWS)[number]; current: bi
           <span className="whitespace-nowrap font-bold tabular">{show(current)}</span>
           {!editing && (
             <button
-              onClick={() => (setV(row.unit === "amount" ? formatUnits(current, DECIMALS) : String(Number(current) / DAY)), setEditing(true))}
+              onClick={() => (row.unit === "amount" ? setV(formatUnits(current, DECIMALS)) : setDur(fromSeconds(Number(current))), setEditing(true))}
               aria-label={`Change ${row.label}`}
               className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -271,8 +332,12 @@ function ParamRow({ row, current, d }: { row: (typeof ROWS)[number]; current: bi
       </div>
       {editing && (
         <div className="mt-3 space-y-3 rounded-2xl bg-muted p-4">
-          <Field label={`New value (${row.unit === "amount" ? "pUSDC" : "days"})`} htmlFor={id} error={v ? err : undefined}>
-            <input id={id} inputMode={row.unit === "amount" ? "decimal" : "numeric"} value={v} onChange={(e) => setV(e.target.value)} className={inputClass} />
+          <Field label={row.unit === "amount" ? "New value (pUSDC)" : "New value"} htmlFor={id} error={err && (v || dur.n) ? err : undefined} hint={row.bound ? rangeHint(bounds[row.bound]) : undefined}>
+            {row.unit === "amount" ? (
+              <input id={id} inputMode="decimal" value={v} onChange={(e) => setV(e.target.value)} className={inputClass} />
+            ) : (
+              <DurationInput id={id} value={dur} onChange={setDur} />
+            )}
           </Field>
           {!err &&
             (instant ? (
@@ -296,6 +361,47 @@ function ParamRow({ row, current, d }: { row: (typeof ROWS)[number]; current: bi
   );
 }
 
+function FastLaneRow({ d }: { d: ProtectionData }) {
+  const { run, busy } = useTx();
+  const pending = d.fastLaneAt > 0;
+  return (
+    <li className="py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold">Backup can approve instantly</p>
+          <p className="text-sm text-muted-foreground">
+            {d.fastLane
+              ? "On: your backup can send a scheduled transfer right away."
+              : pending
+                ? `Turning on ${fmtDate(d.fastLaneAt)}.`
+                : "Off: big transfers always wait."}
+          </p>
+        </div>
+        {d.fastLane || pending ? (
+          <Button
+            variant="secondary"
+            loading={busy === "lane"}
+            onClick={() => run("lane", { ...p, functionName: "setFastLane", args: [false] }, pending ? "Cancelled" : "Turned off. Big transfers always wait now")}
+          >
+            {pending ? "Cancel" : "Turn off"}
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            loading={busy === "lane"}
+            onClick={() => run("lane", { ...p, functionName: "setFastLane", args: [true] }, `Scheduled: turns on ${fmtDate(Math.floor(Date.now() / 1000) + d.offDelay)}`)}
+          >
+            Turn on…
+          </Button>
+        )}
+      </div>
+      {!d.fastLane && !pending && (
+        <p className="mt-2 text-xs text-muted-foreground">Turning this on is a loosening, so it waits {fmtDuration(d.offDelay)}. Turning it off is instant.</p>
+      )}
+    </li>
+  );
+}
+
 function BackupRow({ d, address }: { d: ProtectionData; address: Address }) {
   const { run, busy } = useTx();
   const [editing, setEditing] = useState(false);
@@ -303,6 +409,7 @@ function BackupRow({ d, address }: { d: ProtectionData; address: Address }) {
   const err = addressProblem(v) ?? (v.toLowerCase() === address.toLowerCase() ? "Your backup has to be a different wallet." : v.toLowerCase() === d.backup.toLowerCase() ? "That's already your backup." : undefined);
   const save = async () => {
     if (err) return;
+    rememberBackup(address, getAddress(v));
     if (await run("backup", { ...p, functionName: "requestBackupChange", args: [getAddress(v)] }, `Backup change scheduled for ${fmtDate(Math.floor(Date.now() / 1000) + d.offDelay)}`)) setEditing(false);
   };
   return (
@@ -345,7 +452,7 @@ function BackupRow({ d, address }: { d: ProtectionData; address: Address }) {
 
 /* ───────────────────────── turn off + emergency ───────────────────────── */
 
-function TurnOffCard({ d }: { d: ProtectionData }) {
+function TurnOffCard({ d, address }: { d: ProtectionData; address: Address }) {
   const { run, busy } = useTx();
   const now = useNow();
   const [confirm, setConfirm] = useState(false);
@@ -367,6 +474,11 @@ function TurnOffCard({ d }: { d: ProtectionData }) {
       <p className="text-sm text-muted-foreground">
         This takes {fmtDuration(d.offDelay)}, so nobody can switch it off and drain you in a hurry. You can change your mind before then.
       </p>
+      <Notice tone="warning" icon={<TriangleAlert />} title="Might someone else have this wallet's key?">
+        Then don't turn protection off: whoever holds a copy of the key could take everything the moment it ends. Move your funds to a
+        new wallet instead. They stay protected on the way.
+      </Notice>
+      <MoveOut d={d} address={address} />
       {!confirm ? (
         <Button variant="secondary" onClick={() => setConfirm(true)}>
           Turn off protection…
@@ -409,5 +521,55 @@ function EmergencyCard({ d, address }: { d: ProtectionData; address: Address }) 
       </HoldButton>
       <p className="text-xs text-muted-foreground">Press and hold for 1.5 seconds. Your backup wallet can also do this for you from the "I'm a backup" tab.</p>
     </Card>
+  );
+}
+
+/** Safer than switching protection off: send everything to a fresh wallet (scheduled if above the daily limit). */
+function MoveOut({ d, address }: { d: ProtectionData; address: Address }) {
+  const { run, busy } = useTx();
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState("");
+  const [tried, setTried] = useState(false);
+  const err = addressProblem(to, "Enter your new wallet's address.") ?? (to.toLowerCase() === address.toLowerCase() ? "That's this same wallet." : to.toLowerCase() === d.backup.toLowerCase() ? "Use a new wallet, not your backup." : undefined);
+  const instant = d.available <= d.dailyRemaining;
+  if (!open)
+    return (
+      <Button variant="secondary" onClick={() => setOpen(true)} disabled={d.available === 0n}>
+        <PackageOpen className="size-4" aria-hidden /> Move everything to a new wallet
+      </Button>
+    );
+  return (
+    <form
+      className="space-y-3 rounded-2xl bg-muted p-4"
+      noValidate
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setTried(true);
+        if (err) return;
+        const ok = await run(
+          "moveout",
+          { ...p, functionName: instant ? "transfer" : "queueTransfer", args: [getAddress(to), d.available] },
+          instant ? "Moved to your new wallet" : `Move scheduled for ${fmtDate(Math.floor(Date.now() / 1000) + d.holdWindow)}`,
+        );
+        if (ok) setOpen(false);
+      }}
+    >
+      <Field label="New wallet address" htmlFor="moveout" error={tried ? err : undefined} hint="Ideally a brand-new wallet. Turn protection on there before or right after the funds arrive.">
+        <input id="moveout" autoComplete="off" spellCheck={false} placeholder="0x…" value={to} onChange={(e) => setTo(e.target.value.trim())} className={`${inputClass} font-mono text-sm`} />
+      </Field>
+      <p className="text-sm">
+        {instant
+          ? `${fmtAmount(d.available)} pUSDC is within today's limit, so it moves instantly.`
+          : `${fmtAmount(d.available)} pUSDC is above today's limit, so the move waits ${fmtDuration(d.holdWindow)}${d.fastLane ? ", or your backup can approve it right away" : ""}. Your backup can still stop it if it wasn't you.`}
+      </p>
+      <div className="flex gap-2">
+        <Button type="submit" loading={busy === "moveout"}>
+          {instant ? "Move now" : "Schedule the move"}
+        </Button>
+        <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
+          Never mind
+        </Button>
+      </div>
+    </form>
   );
 }

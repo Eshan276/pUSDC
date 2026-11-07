@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Address } from "viem";
 import { useWatchAsset } from "wagmi";
-import { ArrowRight, Clock, Droplets, Lock, PlusCircle, RefreshCw, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
+import { ArrowRight, Clock, Droplets, FastForward, Lock, PlusCircle, RefreshCw, ShieldAlert, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
 import { pusdcAbi, usdcAbi } from "../abi";
-import { DECIMALS, IS_TESTNET, PUSDC, USDC } from "../config";
+import { DECIMALS, IS_TESTNET, PUSDC, SCHEDULER, USDC } from "../config";
 import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, shortAddr, toUnits } from "../lib/format";
-import { useProtection, type ProtectionData } from "../lib/useProtection";
+import { knownBackups, useProtection, type ProtectionData } from "../lib/useProtection";
+import { useAnonStatus } from "../lib/anonRpc";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Notice, Progress, Skeleton, useNow } from "./ui";
 import { SendPanel, WrapPanel } from "./Panels";
+import { SwapPanel } from "./Swap";
 import { ProtectionPanel } from "./Protection";
 import { GuardianPanel } from "./Guardian";
 
+const SWAP_ENABLED = SCHEDULER !== "0x0000000000000000000000000000000000000000";
 const TABS = [
   { id: "send", label: "Send" },
+  ...(SWAP_ENABLED ? [{ id: "swap", label: "Swap" } as const] : []),
   { id: "wrap", label: "Add & withdraw" },
   { id: "protection", label: "Protection" },
   { id: "backup", label: "I'm a backup" },
@@ -55,12 +59,13 @@ export function Dashboard({ address }: { address: Address }) {
   return (
     <div className="space-y-6 pt-4">
       <div className="grid gap-6 lg:grid-cols-5">
-        <StatusCard d={data} onSetup={() => setTab("protection")} />
+        <StatusCard d={data} address={address} onSetup={() => setTab("protection")} />
         <BalanceCard d={data} address={address} onAdd={() => setTab("wrap")} />
       </div>
       <Tabs tab={tab} setTab={setTab} />
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "send" && <SendPanel d={data} address={address} />}
+        {tab === "swap" && <SwapPanel d={data} address={address} />}
         {tab === "wrap" && <WrapPanel d={data} />}
         {tab === "protection" && <ProtectionPanel d={data} address={address} />}
         {tab === "backup" && <GuardianPanel me={address} />}
@@ -79,7 +84,7 @@ function Tabs({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
     refs.current[next]?.focus();
   };
   return (
-    <div role="tablist" aria-label="Actions" className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 sm:flex">
+    <div role="tablist" aria-label="Actions" className={`grid gap-1 rounded-2xl bg-muted p-1 sm:flex ${TABS.length > 4 ? "grid-cols-3" : "grid-cols-2"}`}>
       {TABS.map((t, i) => (
         <button
           key={t.id}
@@ -104,7 +109,7 @@ function Tabs({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
   );
 }
 
-function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) {
+function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Address; onSetup: () => void }) {
   const now = useNow();
   const { run, busy } = useTx();
   const p = { address: PUSDC, abi: pusdcAbi } as const;
@@ -131,6 +136,10 @@ function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) 
     );
 
   const used = d.dailyLimit - d.dailyRemaining;
+  // If this browser set up protection but the on-chain backup is one we never chose, someone else holding
+  // this key probably front-ran the setup with their own backup.
+  const mine = knownBackups(address);
+  const hijacked = mine.length > 0 && !mine.includes(d.backup.toLowerCase());
   const changes = Object.entries(d.pendingChanges).filter(([, c]) => c && c.effectiveAt > now);
   const labels = ["Daily limit", "Waiting time for big transfers", "Waiting time to loosen settings", "Emergency lock"];
   const show = (i: number, v: bigint) => (i === 0 ? `${fmtAmount(v)} pUSDC` : fmtDuration(Number(v)));
@@ -144,10 +153,21 @@ function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) 
         <div className="space-y-1">
           <h1 className="text-xl font-bold">You're protected</h1>
           <p className="text-sm text-muted-foreground">
-            Bigger transfers wait {fmtDuration(d.holdWindow)}, and your backup {shortAddr(d.backup)} can stop them.
+            Bigger transfers wait {fmtDuration(d.holdWindow)}, and your backup {shortAddr(d.backup)} can stop them
+            {d.fastLane ? " or approve them instantly" : ""}.
           </p>
         </div>
       </div>
+
+      {hijacked && (
+        <Notice tone="danger" icon={<ShieldAlert />} title="This backup isn't one you chose">
+          <p>
+            The backup on record is {shortAddr(d.backup)}, which you never entered here. Someone else may have this wallet's key and set up
+            protection first. Don't use the emergency button (it would send funds to their backup) and don't add more funds. Move what you can
+            to a brand-new wallet.
+          </p>
+        </Notice>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -159,7 +179,9 @@ function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) 
         </div>
         <Progress value={d.dailyLimit > 0n ? Number((d.dailyRemaining * 100n) / d.dailyLimit) : 0} label="Daily spending left" />
         <p className="text-xs text-muted-foreground">
-          {used > 0n ? "Resets 24 hours after your first payment of the day." : "Your full daily limit is available."}
+          {used > 0n ? "Resets 24 hours after your first payment of the day." : "Your full daily limit is available."} Sending more from
+          MetaMask or another app? It's scheduled automatically and arrives after {fmtDuration(d.holdWindow)}. It shows up under your
+          scheduled transfers.
         </p>
       </div>
 
@@ -180,6 +202,15 @@ function StatusCard({ d, onSetup }: { d: ProtectionData; onSetup: () => void }) 
           </Button>
         </Notice>
       ))}
+
+      {d.fastLaneAt > now && (
+        <Notice tone="warning" icon={<FastForward />} title={`Instant backup approval turns on in ${fmtCountdown(d.fastLaneAt - now)}`}>
+          <p>After that, your backup can send big transfers right away. Didn't do this? Cancel it.</p>
+          <Button variant="secondary" className="mt-2" loading={busy === "lane"} onClick={() => run("lane", { ...p, functionName: "setFastLane", args: [false] }, "Cancelled")}>
+            Cancel change
+          </Button>
+        </Notice>
+      )}
 
       {d.pendingBackup && d.pendingBackup.effectiveAt > now && (
         <Notice tone="warning" icon={<Clock />} title={`Backup wallet changes to ${shortAddr(d.pendingBackup.backup)}`}>
@@ -262,8 +293,14 @@ function BalanceCard({ d, address, onAdd }: { d: ProtectionData; address: Addres
 }
 
 function DashboardSkeleton() {
+  const anon = useAnonStatus();
   return (
     <div className="space-y-6 pt-4" aria-busy="true" aria-label="Loading your account">
+      {anon === "connecting" && (
+        <p className="text-center text-sm text-muted-foreground" role="status">
+          Connecting privately through the Nox mixnet. The first load takes about 15 seconds.
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-5">
         <Skeleton className="h-56 lg:col-span-3" />
         <Skeleton className="h-56 lg:col-span-2" />

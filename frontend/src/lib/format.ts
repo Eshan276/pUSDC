@@ -30,6 +30,10 @@ export const shortAddr = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}
 /** 259200 -> "3 days", 3600 -> "1 hour". */
 export function fmtDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
+  if (s >= 3600 && s % DAY !== 0 && s % 3600 === 0 && s < 7 * DAY) {
+    const h = s / 3600;
+    return `${h} hour${h === 1 ? "" : "s"}`;
+  }
   if (s >= DAY) {
     const d = s / DAY;
     const r = Number.isInteger(d) ? d : Math.round(d * 10) / 10;
