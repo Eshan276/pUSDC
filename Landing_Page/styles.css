@@ -1713,3 +1713,8 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
 .strip-track li { opacity: 0.95; }
 .strip-track li img[src$="uniswap.svg"] { height: calc(40 * var(--k)); min-height: 32px; }
 .strip-track li img[src$="usdc.svg"] { height: calc(34 * var(--k)); min-height: 27px; }
+
+/* ───── Hero content lower still: centres the headline + artwork between the header and the strip ───── */
+.hero-inner { top: calc(20.8svh + 30px); }
+.ascii { top: calc(17.3svh + 62px); }
+@media (max-width: 900px) { .hero-inner { top: 96px; } .ascii { top: auto; } }
