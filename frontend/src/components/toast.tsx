@@ -34,7 +34,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => {
           const I = Icon[t.kind];
           return (
-            <div key={t.id} className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl border border-border p-4 shadow-lg ${tone[t.kind]}`}>
+            <div key={t.id} className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border border-border p-4 shadow-lg ${tone[t.kind]}`}>
               <I className="mt-0.5 size-5 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1 text-sm">
                 <p className="font-semibold">{t.title}</p>

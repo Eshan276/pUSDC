@@ -69,3 +69,7 @@ export function addressProblem(v: string, empty = "Enter a wallet address."): st
   // Mixed-case addresses carry a checksum; a mismatch usually means a typo.
   if (!isAddress(v)) return "This address has a capital-letter mistake. Copy it again from your wallet, or paste it in all lowercase.";
 }
+
+const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+/** 12000000000n (6 decimals) -> "$12,000.00". pUSDC and USDC are both pegged 1:1 to a dollar. */
+export const fmtUsd = (v: bigint) => usdFmt.format(Number(formatUnits(v, DECIMALS)));

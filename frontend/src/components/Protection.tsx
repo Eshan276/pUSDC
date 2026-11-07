@@ -154,14 +154,21 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
             Protection guards against theft from now on. If anyone might already have this wallet's key, set up protection on a brand-new
             wallet instead, then move your funds in.{hasFunds ? " This wallet already holds funds, so be sure its key has never been exposed." : ""}
           </Notice>
-          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl bg-muted p-4 text-sm">
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg bg-muted p-4 text-sm">
             <input type="checkbox" checked={owns} onChange={(e) => setOwns(e.target.checked)} className="mt-0.5 size-5 accent-[var(--primary)]" />
             <span>I control this wallet and its recovery phrase is saved somewhere safe.</span>
           </label>
         </div>
       )}
 
-      {step === 1 && (
+      {step === 1 && !bounds.loaded && (
+        <div className="space-y-3" aria-busy="true">
+          <p className="text-sm text-muted-foreground" role="status">Reading this deployment's time limits…</p>
+          <div className="h-28 rounded-lg bg-muted motion-safe:animate-pulse" aria-hidden />
+        </div>
+      )}
+
+      {step === 1 && bounds.loaded && (
         <div className="space-y-5">
           <div>
             <h2 className="text-xl font-bold">How careful should it be?</h2>
@@ -174,7 +181,7 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
                 role="radio"
                 aria-checked={preset === x.id}
                 onClick={() => (setPreset(x.id), setPicked(true))}
-                className={`rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${preset === x.id ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}
+                className={`rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${preset === x.id ? "border-primary bg-primary-soft" : "border-border hover:bg-muted"}`}
               >
                 <span className="flex items-center justify-between font-bold">
                   {x.title} {preset === x.id && <Check className="size-4 text-primary" aria-hidden />}
@@ -199,7 +206,7 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
               </Field>
             </div>
           )}
-          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border border-border p-4 text-sm">
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-border p-4 text-sm">
             <input type="checkbox" checked={fastLane} onChange={(e) => setFastLane(e.target.checked)} className="mt-0.5 size-5 accent-[var(--primary)]" />
             <span className="space-y-1">
               <span className="block font-semibold">Let my backup approve big transfers instantly (optional)</span>
@@ -239,7 +246,7 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
               { icon: LifeBuoy, text: `In an emergency, everything moves to your backup and stays locked for ${fmtDuration(toSeconds(s.lock))}.` },
               { icon: ShieldCheck, text: `Turning protection off or loosening any setting takes ${fmtDuration(toSeconds(s.off))}.` },
             ].map(({ icon: Icon, text }) => (
-              <li key={text} className="flex gap-3 rounded-2xl bg-muted p-4 text-sm">
+              <li key={text} className="flex gap-3 rounded-lg bg-muted p-4 text-sm">
                 <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
                 {text}
               </li>
@@ -258,11 +265,11 @@ function SetupWizard({ address, hasFunds }: { address: Address; hasFunds: boolea
           <span />
         )}
         {step < 2 ? (
-          <Button onClick={next}>
+          <Button onClick={next} disabled={step === 1 && !bounds.loaded}>
             Continue <ArrowRight className="size-4" aria-hidden />
           </Button>
         ) : (
-          <Button onClick={turnOn} loading={busy === "protect"}>
+          <Button onClick={turnOn} loading={busy === "protect"} disabled={!bounds.loaded}>
             <ShieldCheck className="size-4" aria-hidden /> Turn on protection
           </Button>
         )}
@@ -335,7 +342,7 @@ function ParamRow({ row, current, d }: { row: (typeof ROWS)[number]; current: bi
             <button
               onClick={() => (row.unit === "amount" ? setV(formatUnits(current, DECIMALS)) : setDur(fromSeconds(Number(current))), setEditing(true))}
               aria-label={`Change ${row.label}`}
-              className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="grid size-10 place-items-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Pencil className="size-4" aria-hidden />
             </button>
@@ -343,7 +350,7 @@ function ParamRow({ row, current, d }: { row: (typeof ROWS)[number]; current: bi
         </div>
       </div>
       {editing && (
-        <div className="mt-3 space-y-3 rounded-2xl bg-muted p-4">
+        <div className="mt-3 space-y-3 rounded-lg bg-muted p-4">
           <Field label={row.unit === "amount" ? "New value (pUSDC)" : "New value"} htmlFor={id} error={err && (v || dur.n) ? err : undefined} hint={row.bound ? rangeHint(bounds[row.bound]) : undefined}>
             {row.unit === "amount" ? (
               <input id={id} inputMode="decimal" value={v} onChange={(e) => setV(e.target.value)} className={inputClass} />
@@ -434,14 +441,14 @@ function BackupRow({ d, address }: { d: ProtectionData; address: Address }) {
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-bold">{shortAddr(d.backup)}</span>
           {!editing && (
-            <button onClick={() => (setV(""), setEditing(true))} aria-label="Change backup wallet" className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <button onClick={() => (setV(""), setEditing(true))} aria-label="Change backup wallet" className="grid size-10 place-items-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Pencil className="size-4" aria-hidden />
             </button>
           )}
         </div>
       </div>
       {editing && (
-        <div className="mt-3 space-y-3 rounded-2xl bg-muted p-4">
+        <div className="mt-3 space-y-3 rounded-lg bg-muted p-4">
           <Field label="New backup wallet" htmlFor="new-backup" error={v ? err : undefined}>
             <input id="new-backup" autoComplete="off" spellCheck={false} placeholder="0x…" value={v} onChange={(e) => setV(e.target.value.trim())} className={`${inputClass} font-mono text-sm`} />
           </Field>
@@ -496,7 +503,7 @@ function TurnOffCard({ d, address }: { d: ProtectionData; address: Address }) {
           Turn off protection…
         </Button>
       ) : (
-        <div className="space-y-3 rounded-2xl bg-muted p-4">
+        <div className="space-y-3 rounded-lg bg-muted p-4">
           <p className="text-sm font-semibold">Protection would end {fmtDate(Math.floor(Date.now() / 1000) + d.offDelay)}. Start the countdown?</p>
           <div className="flex gap-2">
             <Button variant="secondary" loading={busy === "off"} onClick={async () => (await run("off", { ...p, functionName: "requestFlagOff" }, "Countdown started")) && setConfirm(false)}>
@@ -517,7 +524,7 @@ function EmergencyCard({ d, address }: { d: ProtectionData; address: Address }) 
   return (
     <Card className="space-y-4 border-danger/40">
       <div className="flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-2xl bg-danger-soft text-danger-soft-foreground">
+        <span className="grid size-11 place-items-center rounded-lg bg-danger-soft text-danger-soft-foreground">
           <LifeBuoy className="size-5" aria-hidden />
         </span>
         <h2 className="text-lg font-bold">Emergency button</h2>
@@ -552,7 +559,7 @@ function MoveOut({ d, address }: { d: ProtectionData; address: Address }) {
     );
   return (
     <form
-      className="space-y-3 rounded-2xl bg-muted p-4"
+      className="space-y-3 rounded-lg bg-muted p-4"
       noValidate
       onSubmit={async (e) => {
         e.preventDefault();

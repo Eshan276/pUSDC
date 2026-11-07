@@ -1,0 +1,37 @@
+import { useEffect, useState } from "react";
+import { Mark } from "@ui/Mark";
+import { useWalletState } from "./useWallet";
+import { Onboarding, Unlock } from "./Onboarding";
+import { Home } from "./Home";
+import { Approval } from "./Approval";
+import { Skeleton } from "@ui/ui";
+
+export function App() {
+  const { state, refresh } = useWalletState();
+  const [hash, setHash] = useState(location.hash);
+  useEffect(() => {
+    const f = () => setHash(location.hash);
+    addEventListener("hashchange", f);
+    return () => removeEventListener("hashchange", f);
+  }, []);
+  const inTab = new URLSearchParams(location.search).has("tab");
+  const approveId = /approve=([\w-]+)/.exec(hash)?.[1];
+
+  let body;
+  if (!state) body = <Skeleton className="h-40" />;
+  else if (!state.hasVault) body = <Onboarding onDone={refresh} />;
+  else if (state.locked) body = <Unlock onDone={refresh} />;
+  else if (approveId) body = <Approval id={approveId} state={state} onDone={() => window.close()} />;
+  else body = <Home state={state} refresh={refresh} />;
+
+  return (
+    <div className={`mx-auto flex min-h-[560px] flex-col gap-4 p-4 ${approveId ? "approval-window" : ""} ${inTab ? "max-w-[440px] pt-10" : ""}`}>
+      <header className="flex items-center gap-2">
+        <Mark className="size-8" />
+        <h1 className="text-lg font-bold tracking-tight">Protected Wallet</h1>
+        <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground"><i className="size-2 rounded-full bg-primary" aria-hidden />Base Sepolia</span>
+      </header>
+      {body}
+    </div>
+  );
+}

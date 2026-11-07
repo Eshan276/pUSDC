@@ -1,52 +1,50 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useState } from "react";
 import type { Address } from "viem";
 import { useWatchAsset } from "wagmi";
-import { ArrowRight, Clock, Droplets, FastForward, Lock, PlusCircle, RefreshCw, ShieldAlert, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
+import { ArrowDownToLine, ArrowLeftRight, Check, ChevronRight, Clock, Copy, Droplets, FastForward, LifeBuoy, Lock, Plus, PlusCircle, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
 import { pusdcAbi, usdcAbi } from "../abi";
-import { DECIMALS, IS_TESTNET, PUSDC, SCHEDULER, USDC } from "../config";
-import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, shortAddr, toUnits } from "../lib/format";
+import { DECIMALS, IS_TESTNET, PUSDC, USDC } from "../config";
+import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, fmtUsd, shortAddr, toUnits } from "../lib/format";
 import { knownBackups, useProtection, type ProtectionData } from "../lib/useProtection";
 import { useAnonStatus } from "../lib/anonRpc";
 import { useTx } from "../lib/useTx";
+import { useCompleter } from "../lib/prefs";
+import type { Page } from "../lib/usePage";
+import { ConnectButton } from "../App";
 import { Button, Card, Notice, Progress, Skeleton, useNow } from "./ui";
-import { SendPanel, WrapPanel } from "./Panels";
-import { SwapPanel } from "./Swap";
+import { Avatar } from "./Avatar";
+import { Mark } from "./Mark";
+import { PendingList, SendPanel } from "./Panels";
+import { SwapCard } from "./SwapCard";
 import { ProtectionPanel } from "./Protection";
 import { GuardianPanel } from "./Guardian";
 
-const SWAP_ENABLED = SCHEDULER !== "0x0000000000000000000000000000000000000000";
-const TABS = [
-  { id: "send", label: "Send" },
-  ...(SWAP_ENABLED ? [{ id: "swap", label: "Swap" } as const] : []),
-  { id: "wrap", label: "Add & withdraw" },
-  { id: "protection", label: "Protection" },
-  { id: "backup", label: "I'm a backup" },
-] as const;
-type TabId = (typeof TABS)[number]["id"];
-
-function useHashTab(): [TabId, (t: TabId) => void] {
-  const read = () => (TABS.find((t) => `#${t.id}` === window.location.hash)?.id ?? "send") as TabId;
-  const [tab, setTab] = useState<TabId>(read);
-  useEffect(() => {
-    const on = () => setTab(read());
-    window.addEventListener("hashchange", on);
-    return () => window.removeEventListener("hashchange", on);
-  }, []);
-  const go = (t: TabId) => {
-    history.replaceState(null, "", `#${t}`);
-    setTab(t);
+/** Before a wallet is connected: the swap card works as a preview, other pages ask you to connect. */
+export function GuestPage({ page }: { page: Page }) {
+  if (page === "swap") return <SwapCard />;
+  const copy: Record<Exclude<Page, "swap">, string> = {
+    send: "Connect your wallet to send pUSDC. Small amounts go out instantly; bigger ones are scheduled for your safety.",
+    wallet: "Connect your wallet to see your balance, assets and scheduled transfers.",
+    protect: "Connect your wallet to turn protection on, choose a backup wallet and set your limits.",
+    backup: "Connect your wallet to watch over someone else's wallet as their backup.",
   };
-  return [tab, go];
+  return (
+    <Card className="space-y-5 text-center">
+      <Mark className="mx-auto size-16" />
+      <p className="text-muted-foreground text-pretty">{copy[page]}</p>
+      <ConnectButton className="min-h-14 w-full text-lg" label="Connect wallet" />
+    </Card>
+  );
 }
 
-export function Dashboard({ address }: { address: Address }) {
+/** A connected wallet: loads its protection data once and renders the open page. */
+export function Dashboard({ address, page, go }: { address: Address; page: Page; go: (p: Page) => void }) {
   const { data, loading, error, refetch } = useProtection(address);
-  const [tab, setTab] = useHashTab();
 
   if (loading) return <DashboardSkeleton />;
   if (error || !data)
     return (
-      <div className="mx-auto mt-16 max-w-md space-y-4">
+      <div className="mx-auto mt-10 max-w-md space-y-4">
         <Notice tone="danger" icon={<TriangleAlert />} title="Couldn't reach the network">
           This is usually temporary. Check your connection and try again.
         </Notice>
@@ -57,85 +55,229 @@ export function Dashboard({ address }: { address: Address }) {
     );
 
   return (
-    <div className="space-y-6 pt-4">
-      <div className="grid gap-6 lg:grid-cols-5">
-        <StatusCard d={data} address={address} onSetup={() => setTab("protection")} />
-        <BalanceCard d={data} address={address} onAdd={() => setTab("wrap")} />
-      </div>
-      <Tabs tab={tab} setTab={setTab} />
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === "send" && <SendPanel d={data} address={address} />}
-        {tab === "swap" && <SwapPanel d={data} address={address} />}
-        {tab === "wrap" && <WrapPanel d={data} />}
-        {tab === "protection" && <ProtectionPanel d={data} address={address} />}
-        {tab === "backup" && <GuardianPanel me={address} />}
-      </div>
+    <div className="wallet-col space-y-5">
+      {page === "swap" ? (
+        <>
+          <Alerts d={data} address={address} />
+          <SwapCard d={data} />
+        </>
+      ) : page === "wallet" ? (
+        <WalletPage d={data} address={address} go={go} />
+      ) : (
+        <>
+          <h1 className="px-1 text-2xl">{page === "send" ? "Send" : page === "protect" ? "Protection" : "I'm a backup"}</h1>
+          <Alerts d={data} address={address} />
+          {page === "send" && <SendPanel d={data} address={address} />}
+          {page === "protect" && <ProtectionPanel d={data} address={address} />}
+          {page === "backup" && <GuardianPanel me={address} />}
+        </>
+      )}
     </div>
   );
 }
 
-function Tabs({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const onKey = (e: KeyboardEvent, i: number) => {
-    const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (!dir) return;
-    const next = (i + dir + TABS.length) % TABS.length;
-    setTab(TABS[next].id);
-    refs.current[next]?.focus();
-  };
+/* ───────────────────────── home ───────────────────────── */
+
+function WalletPage({ d, address, go }: { d: ProtectionData; address: Address; go: (p: Page) => void }) {
+  const [receive, setReceive] = useState(false);
+  const completer = useCompleter(address);
+  const actions = [
+    { id: "send", label: "Send", icon: Send, onClick: () => go("send") },
+    { id: "swap", label: "Swap", icon: ArrowLeftRight, onClick: () => go("swap") },
+    { id: "add", label: "Add", icon: Plus, onClick: () => go("swap") },
+    { id: "receive", label: "Receive", icon: ArrowDownToLine, onClick: () => setReceive(!receive) },
+  ];
   return (
-    <div role="tablist" aria-label="Actions" className={`grid gap-1 rounded-2xl bg-muted p-1 sm:flex ${TABS.length > 4 ? "grid-cols-3" : "grid-cols-2"}`}>
-      {TABS.map((t, i) => (
+    <>
+      <AccountBar address={address} />
+      <Alerts d={d} address={address} />
+      <BalanceHero d={d} go={go} />
+      <div className="grid grid-cols-4 gap-2" role="group" aria-label="Actions">
+        {actions.map(({ id, label, icon: Icon, onClick }) => (
+          <button key={id} onClick={onClick} className="group flex flex-col items-center gap-2 rounded-xl py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="grid size-14 place-items-center rounded-full bg-primary text-primary-foreground transition-all group-hover:brightness-95 group-active:scale-95">
+              <Icon className="size-6" aria-hidden />
+            </span>
+            <span className="font-mono text-xs">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {receive && <ReceiveScreen d={d} address={address} />}
+
+      <Assets d={d} go={go} />
+
+      {d.pending.length > 0 && <PendingList title="Scheduled transfers" transfers={d.pending} loading={d.pendingLoading} role="owner" fastLane={d.fastLane} shareable={completer === "recipient"} />}
+
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+        <Row
+          icon={d.protected ? ShieldCheck : ShieldOff}
+          tone={d.protected ? "primary" : "muted"}
+          title="Protection"
+          sub={d.protected ? `Up to ${fmtAmount(d.dailyLimit)} pUSDC a day · bigger waits ${fmtDuration(d.holdWindow)}` : "Off. Set it up in a minute"}
+          onClick={() => go("protect")}
+        />
+        <Row icon={LifeBuoy} tone="muted" title="I'm a backup" sub="Watch over someone else's wallet" onClick={() => go("backup")} />
+      </ul>
+      <div className="pb-6" />
+    </>
+  );
+}
+
+function AccountBar({ address }: { address: Address }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-3">
+      <Avatar address={address} />
+      <div className="min-w-0 flex-1">
+        <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Account</p>
         <button
-          key={t.id}
-          ref={(el) => {
-            refs.current[i] = el;
-          }}
-          id={`tab-${t.id}`}
-          role="tab"
-          aria-selected={tab === t.id}
-          aria-controls={`panel-${t.id}`}
-          tabIndex={tab === t.id ? 0 : -1}
-          onClick={() => setTab(t.id)}
-          onKeyDown={(e) => onKey(e, i)}
-          className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            tab === t.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
+          onClick={() => navigator.clipboard?.writeText(address).then(() => (setCopied(true), setTimeout(() => setCopied(false), 1500)))}
+          className="flex items-center gap-1.5 rounded font-mono text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Copy your address"
         >
-          {t.label}
+          {shortAddr(address)} {copied ? <Check className="size-3.5 text-primary" aria-hidden /> : <Copy className="size-3.5 text-muted-foreground" aria-hidden />}
         </button>
-      ))}
+      </div>
     </div>
   );
 }
 
-function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Address; onSetup: () => void }) {
+function BalanceHero({ d, go }: { d: ProtectionData; go: (p: Page) => void }) {
+  const chips = [
+    { label: "Free", value: d.available, show: true },
+    { label: "Scheduled", value: d.reserved, show: d.reserved > 0n },
+    { label: "Locked", value: d.locked, show: d.locked > 0n },
+  ].filter((c) => c.show);
+  return (
+    <Card className="space-y-4 !p-6">
+      <div>
+        <p className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Total balance</p>
+        <p className="mt-1 text-[2.6rem] font-light leading-none tracking-tight tabular">{fmtUsd(d.balance)}</p>
+        <p className="mt-2 font-mono text-xs text-muted-foreground tabular">{fmtAmount(d.balance)} pUSDC</p>
+      </div>
+      {chips.length > 1 && (
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
+          {chips.map((c) => (
+            <li key={c.label}>
+              {c.label} <b className="font-semibold text-foreground tabular">{fmtAmount(c.value)}</b>
+            </li>
+          ))}
+        </ul>
+      )}
+      {d.protected ? (
+        <button onClick={() => go("protect")} className="block w-full space-y-2 rounded-lg bg-primary-soft p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="flex items-center justify-between gap-2 text-sm font-medium text-primary-soft-foreground">
+            <span className="flex items-center gap-1.5"><ShieldCheck className="size-4" aria-hidden /> You're protected</span>
+            <span className="font-mono text-xs tabular"><b>{fmtAmount(d.dailyRemaining)}</b> of {fmtAmount(d.dailyLimit)} left today</span>
+          </span>
+          <Progress value={d.dailyLimit > 0n ? Number((d.dailyRemaining * 100n) / d.dailyLimit) : 0} label="Daily spending left" />
+        </button>
+      ) : (
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-warning-soft p-3">
+          <span className="flex items-center gap-2 text-sm font-medium text-warning-foreground"><ShieldOff className="size-4 shrink-0" aria-hidden /> Protection is off</span>
+          <Button onClick={() => go("protect")} className="min-h-9 shrink-0 text-xs">Set it up</Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Assets({ d, go }: { d: ProtectionData; go: (p: Page) => void }) {
+  return (
+    <section aria-label="Assets">
+      <h2 className="mb-2 px-1 font-mono text-[11px] font-normal uppercase tracking-wide text-muted-foreground">Assets</h2>
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+        <li className="flex items-center gap-3 p-4">
+          <Mark className="size-10 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Protected USDC</p>
+            <p className="font-mono text-xs text-muted-foreground">pUSDC · protected</p>
+          </div>
+          <div className="text-right">
+            <p className="font-medium tabular">{fmtUsd(d.balance)}</p>
+            <p className="font-mono text-xs text-muted-foreground tabular">{fmtAmount(d.balance)}</p>
+          </div>
+        </li>
+        <li className="flex items-center gap-3 p-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted font-mono text-sm font-semibold text-muted-foreground" aria-hidden>$</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">USD Coin</p>
+            <p className="font-mono text-xs text-muted-foreground">USDC · not protected</p>
+          </div>
+          <div className="text-right">
+            <p className="font-medium tabular">{fmtUsd(d.usdcBalance)}</p>
+            {d.usdcBalance > 0n ? (
+              <button onClick={() => go("swap")} className="font-mono text-xs font-medium text-primary underline-offset-2 hover:underline">Protect it</button>
+            ) : (
+              <p className="font-mono text-xs text-muted-foreground tabular">{fmtAmount(d.usdcBalance)}</p>
+            )}
+          </div>
+        </li>
+      </ul>
+    </section>
+  );
+}
+
+function Row({ icon: Icon, tone, title, sub, onClick }: { icon: typeof ShieldCheck; tone: "primary" | "muted"; title: string; sub: string; onClick: () => void }) {
+  return (
+    <li>
+      <button onClick={onClick} className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+        <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${tone === "primary" ? "bg-primary-soft text-primary-soft-foreground" : "bg-muted text-muted-foreground"}`}>
+          <Icon className="size-5" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">{title}</span>
+          <span className="block truncate text-sm text-muted-foreground">{sub}</span>
+        </span>
+        <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+      </button>
+    </li>
+  );
+}
+
+function ReceiveScreen({ d, address }: { d: ProtectionData; address: Address }) {
+  const { run, busy } = useTx();
+  const { mutate: watchAsset } = useWatchAsset();
+  const [copied, setCopied] = useState(false);
+  return (
+    <Card className="space-y-5">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <Avatar address={address} className="size-16" />
+        <p className="text-sm text-muted-foreground">Send USDC or pUSDC on <b className="font-semibold text-foreground">Base Sepolia</b> to this address. Receiving is never slowed down, even with protection on.</p>
+        <p className="break-all rounded-lg bg-muted p-4 font-mono text-sm leading-relaxed">{address}</p>
+        <Button
+          onClick={() => navigator.clipboard?.writeText(address).then(() => (setCopied(true), setTimeout(() => setCopied(false), 1500)))}
+          className="w-full"
+        >
+          {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />} {copied ? "Copied" : "Copy address"}
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        {IS_TESTNET && (
+          <Button variant="secondary" loading={busy === "faucet"} onClick={() => run("faucet", { address: USDC, abi: usdcAbi, functionName: "mint", args: [address, toUnits(10_000)] }, "10,000 test USDC added")}>
+            <Droplets className="size-4" aria-hidden /> Get 10,000 test USDC
+          </Button>
+        )}
+        <Button variant="ghost" onClick={() => watchAsset({ type: "ERC20", options: { address: PUSDC, symbol: "pUSDC", decimals: DECIMALS } })}>
+          <PlusCircle className="size-4" aria-hidden /> Show pUSDC in my wallet
+        </Button>
+        <Button variant="ghost" onClick={() => watchAsset({ type: "ERC20", options: { address: USDC, symbol: "USDC", decimals: DECIMALS } })}>
+          <PlusCircle className="size-4" aria-hidden /> Show {IS_TESTNET ? "test USDC" : "USDC"} in my wallet
+        </Button>
+      </div>
+      {d.locked > 0n && <p className="font-mono text-xs text-muted-foreground">{fmtAmount(d.locked)} pUSDC is locked and can't be moved yet.</p>}
+    </Card>
+  );
+}
+
+/* ───────────────────────── alerts (same safety notices as before) ───────────────────────── */
+
+function Alerts({ d, address }: { d: ProtectionData; address: Address }) {
   const now = useNow();
   const { run, busy } = useTx();
   const p = { address: PUSDC, abi: pusdcAbi } as const;
-
-  if (!d.protected)
-    return (
-      <Card className="lg:col-span-3">
-        <div className="flex items-start gap-4">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-muted text-muted-foreground">
-            <ShieldOff className="size-6" aria-hidden />
-          </span>
-          <div className="space-y-1">
-            <h1 className="text-xl font-bold">Protection is off</h1>
-            <p className="text-sm text-muted-foreground">
-              Right now your pUSDC works like plain USDC: anyone holding your key could move all of it in one go.
-            </p>
-          </div>
-        </div>
-        <Button onClick={onSetup} className="mt-5 w-full sm:w-auto">
-          Set up protection <ArrowRight className="size-4" aria-hidden />
-        </Button>
-        {d.locked > 0n && <LockedNotice d={d} now={now} />}
-      </Card>
-    );
-
-  const used = d.dailyLimit - d.dailyRemaining;
+  if (!d.protected) return d.locked > 0n ? <LockedNotice d={d} now={now} /> : null;
   // If this browser set up protection but the on-chain backup is one we never chose, someone else holding
   // this key probably front-ran the setup with their own backup.
   const mine = knownBackups(address);
@@ -143,22 +285,10 @@ function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Addre
   const changes = Object.entries(d.pendingChanges).filter(([, c]) => c && c.effectiveAt > now);
   const labels = ["Daily limit", "Waiting time for big transfers", "Waiting time to loosen settings", "Emergency lock"];
   const show = (i: number, v: bigint) => (i === 0 ? `${fmtAmount(v)} pUSDC` : fmtDuration(Number(v)));
-
+  const any = hijacked || d.flagOffAt > 0 || changes.length > 0 || d.fastLaneAt > now || (d.pendingBackup && d.pendingBackup.effectiveAt > now) || d.locked > 0n;
+  if (!any) return null;
   return (
-    <Card className="space-y-5 lg:col-span-3">
-      <div className="flex items-start gap-4">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
-          <ShieldCheck className="size-6" aria-hidden />
-        </span>
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold">You're protected</h1>
-          <p className="text-sm text-muted-foreground">
-            Bigger transfers wait {fmtDuration(d.holdWindow)}, and your backup {shortAddr(d.backup)} can stop them
-            {d.fastLane ? " or approve them instantly" : ""}.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-3">
       {hijacked && (
         <Notice tone="danger" icon={<ShieldAlert />} title="This backup isn't one you chose">
           <p>
@@ -168,22 +298,6 @@ function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Addre
           </p>
         </Notice>
       )}
-
-      <div className="space-y-2">
-        <div className="flex items-baseline justify-between gap-2 text-sm">
-          <span className="font-semibold">Instant spending left today</span>
-          <span className="tabular">
-            <span className="font-bold">{fmtAmount(d.dailyRemaining)}</span>
-            <span className="text-muted-foreground"> of {fmtAmount(d.dailyLimit)}</span>
-          </span>
-        </div>
-        <Progress value={d.dailyLimit > 0n ? Number((d.dailyRemaining * 100n) / d.dailyLimit) : 0} label="Daily spending left" />
-        <p className="text-xs text-muted-foreground">
-          {used > 0n ? "Resets 24 hours after your first payment of the day." : "Your full daily limit is available."} Sending more from
-          MetaMask or another app? It's scheduled automatically and arrives after {fmtDuration(d.holdWindow)}. It shows up under your
-          scheduled transfers.
-        </p>
-      </div>
 
       {d.flagOffAt > 0 && (
         <Notice tone="warning" icon={<Clock />} title={`Protection turns off in ${fmtCountdown(d.flagOffAt - now)}`}>
@@ -221,98 +335,32 @@ function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Addre
         </Notice>
       )}
       {d.locked > 0n && <LockedNotice d={d} now={now} />}
-    </Card>
+    </div>
   );
 }
 
 function LockedNotice({ d, now }: { d: ProtectionData; now: number }) {
   return (
-    <div className="mt-4">
-      <Notice tone="info" icon={<Lock />} title={`${fmtAmount(d.locked)} pUSDC is locked for safety`}>
-        It was moved here by an emergency action and unlocks {fmtDate(d.lockedUntil)} (in {fmtCountdown(d.lockedUntil - now)}). Nobody can
-        move it before then, not even you.
-      </Notice>
-    </div>
-  );
-}
-
-function BalanceCard({ d, address, onAdd }: { d: ProtectionData; address: Address; onAdd: () => void }) {
-  const { run, busy } = useTx();
-  const { mutate: watchAsset } = useWatchAsset();
-  const rows = [
-    { label: "Free to use", value: d.available, show: true },
-    { label: "Scheduled to leave", value: d.reserved, show: d.reserved > 0n },
-    { label: "Locked for safety", value: d.locked, show: d.locked > 0n },
-  ];
-  return (
-    <Card className="space-y-4 lg:col-span-2">
-      <div>
-        <h2 className="text-sm font-semibold text-muted-foreground">Your Protected USDC</h2>
-        <p className="mt-1 text-4xl font-extrabold tracking-tight tabular">
-          {fmtAmount(d.balance)} <span className="text-base font-semibold text-muted-foreground">pUSDC</span>
-        </p>
-      </div>
-      <dl className="space-y-2 text-sm">
-        {rows
-          .filter((r) => r.show)
-          .map((r) => (
-            <div key={r.label} className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">{r.label}</dt>
-              <dd className="font-semibold tabular">{fmtAmount(r.value)}</dd>
-            </div>
-          ))}
-        <div className="flex justify-between gap-2 border-t border-border pt-2">
-          <dt className="text-muted-foreground">Plain USDC in wallet</dt>
-          <dd className="font-semibold tabular">{fmtAmount(d.usdcBalance)}</dd>
-        </div>
-      </dl>
-      {d.balance === 0n && d.usdcBalance > 0n && (
-        <Button onClick={onAdd} className="w-full">
-          Start protecting my USDC <ArrowRight className="size-4" aria-hidden />
-        </Button>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {IS_TESTNET && (
-          <Button
-            variant="secondary"
-            loading={busy === "faucet"}
-            onClick={() => run("faucet", { address: USDC, abi: usdcAbi, functionName: "mint", args: [address, toUnits(10_000)] }, "10,000 test USDC added")}
-          >
-            <Droplets className="size-4" aria-hidden /> Get 10,000 test USDC
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          onClick={() => watchAsset({ type: "ERC20", options: { address: PUSDC, symbol: "pUSDC", decimals: DECIMALS } })}
-        >
-          <PlusCircle className="size-4" aria-hidden /> Show pUSDC in my wallet
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() => watchAsset({ type: "ERC20", options: { address: USDC, symbol: "USDC", decimals: DECIMALS } })}
-        >
-          <PlusCircle className="size-4" aria-hidden /> Show {IS_TESTNET ? "test USDC" : "USDC"} in my wallet
-        </Button>
-      </div>
-    </Card>
+    <Notice tone="info" icon={<Lock />} title={`${fmtAmount(d.locked)} pUSDC is locked for safety`}>
+      It was moved here by an emergency action and unlocks {fmtDate(d.lockedUntil)} (in {fmtCountdown(d.lockedUntil - now)}). Nobody can
+      move it before then, not even you.
+    </Notice>
   );
 }
 
 function DashboardSkeleton() {
   const anon = useAnonStatus();
   return (
-    <div className="space-y-6 pt-4" aria-busy="true" aria-label="Loading your account">
+    <div className="mx-auto w-full max-w-[520px] space-y-5 pt-5" aria-busy="true" aria-label="Loading your account">
       {anon === "connecting" && (
         <p className="text-center text-sm text-muted-foreground" role="status">
           Connecting privately through the Nox mixnet. The first load takes about 15 seconds.
         </p>
       )}
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Skeleton className="h-56 lg:col-span-3" />
-        <Skeleton className="h-56 lg:col-span-2" />
-      </div>
-      <Skeleton className="h-12" />
-      <Skeleton className="h-72" />
+      <Skeleton className="h-10 w-48" />
+      <Skeleton className="h-52" />
+      <Skeleton className="h-24" />
+      <Skeleton className="h-40" />
     </div>
   );
 }
