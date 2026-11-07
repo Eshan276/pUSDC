@@ -1,5 +1,5 @@
 import {
-  createWalletClient, http, isAddress, hexToBigInt, type Address, type Hex,
+  bytesToHex, createWalletClient, http, isAddress, hexToBigInt, type Address, type Hex,
 } from "viem";
 import { english, generateMnemonic, mnemonicToAccount, type HDAccount } from "viem/accounts";
 import { encodeFunctionData } from "viem";
@@ -22,7 +22,32 @@ const getWatch = async () => ((await local.get("watch")).watch as Address[] | un
 const getAutolock = async () => ((await local.get("autolock")).autolock as number | undefined) ?? 15;
 const getConnected = async () => ((await local.get("connected")).connected as string[] | undefined) ?? [];
 
-const accountOf = (mnemonic: string, index = 0): HDAccount => mnemonicToAccount(mnemonic, { addressIndex: index });
+// Deriving an HD account re-hashes the seed every time, so keep the ones we've made (memory only, like the session).
+const accCache = new Map<string, HDAccount>();
+const accountOf = (mnemonic: string, index = 0): HDAccount => {
+  const k = `${index}:${mnemonic}`;
+  let a = accCache.get(k);
+  if (!a) { a = mnemonicToAccount(mnemonic, { addressIndex: index }); accCache.set(k, a); }
+  return a;
+};
+
+// Several accounts from the same recovery phrase: how many, which one is active, and their names.
+const MAX_ACCOUNTS = 10;
+type Meta = { count: number; selected: number; names: Record<string, string> };
+async function getMeta(): Promise<Meta> {
+  const r = await local.get(["accountCount", "selected", "accountNames"]);
+  const count = Math.min(MAX_ACCOUNTS, Math.max(1, (r.accountCount as number | undefined) ?? 1));
+  const selected = Math.min(count - 1, Math.max(0, (r.selected as number | undefined) ?? 0));
+  return { count, selected, names: (r.accountNames as Record<string, string> | undefined) ?? {} };
+}
+const nameOf = (m: Meta, i: number) => m.names[String(i)]?.trim() || `Account ${i + 1}`;
+/** The account every signature comes from. */
+async function active(s: Session): Promise<HDAccount> {
+  if (!s.mnemonic) throw new Error("Wallet is locked.");
+  return accountOf(s.mnemonic, (await getMeta()).selected);
+}
+// The decoy shown after a duress unlock is an index no real account uses.
+const DECOY_INDEX = 9999;
 
 const approvals = new Map<string, { a: Approval; resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
 
@@ -30,11 +55,15 @@ async function publicState(): Promise<WalletState> {
   const v = await getVault();
   const s = await getSession();
   const unlocked = !!s.mnemonic || !!s.duress;
+  const meta = await getMeta();
   return {
     hasVault: !!v,
     locked: !unlocked,
     duress: !!s.duress,
-    address: s.duress ? s.decoy : s.mnemonic ? accountOf(s.mnemonic).address : undefined,
+    address: s.duress ? s.decoy : s.mnemonic ? accountOf(s.mnemonic, meta.selected).address : undefined,
+    accounts: s.mnemonic ? Array.from({ length: meta.count }, (_, i) => ({ index: i, address: accountOf(s.mnemonic!, i).address, name: nameOf(meta, i) })) : [],
+    selected: meta.selected,
+    connected: await getConnected(),
     hasDuressPin: !!v?.duress,
     autolock: await getAutolock(),
     watch: await getWatch(),
@@ -43,10 +72,8 @@ async function publicState(): Promise<WalletState> {
 }
 
 // ---------- signing ----------
-async function sendTx(to: Address, data: Hex, value = 0n): Promise<Hex> {
-  const s = await getSession();
-  if (!s.mnemonic) throw new Error("Wallet is locked.");
-  const account = accountOf(s.mnemonic);
+async function sendTx(to: Address, data: Hex, value = 0n, from?: HDAccount): Promise<Hex> {
+  const account = from ?? (await active(await getSession()));
   const wallet = createWalletClient({ account, chain: CHAIN, transport: http(RPC_URL) });
   // Simulate first so a doomed transaction fails here, with a reason, before costing gas.
   await publicClient.call({ account, to, data, value });
@@ -56,15 +83,18 @@ async function sendTx(to: Address, data: Hex, value = 0n): Promise<Hex> {
 }
 
 async function panic(mnemonic: string) {
-  // Duress unlock: sweep everything to the backup wallet, then forget the key.
-  try {
-    const account = accountOf(mnemonic);
-    const prot = await readProtection(account.address);
-    if (prot.protected) {
-      await sendTx(PUSDC, encodeFunctionData({ abi: pusdcAbi, functionName: "stress", args: [account.address] }));
+  // Duress unlock: sweep every protected account to its backup, then forget the keys.
+  const { count } = await getMeta();
+  for (let i = 0; i < count; i++) {
+    try {
+      const account = accountOf(mnemonic, i);
+      const prot = await readProtection(account.address);
+      if (prot.protected) {
+        await sendTx(PUSDC, encodeFunctionData({ abi: pusdcAbi, functionName: "stress", args: [account.address] }), 0n, account);
+      }
+    } catch (e) {
+      console.warn(`duress stress failed for account ${i}`, e);
     }
-  } catch (e) {
-    console.warn("duress stress failed", e);
   }
 }
 
@@ -85,7 +115,7 @@ function keepAlive(on: boolean) {
 
 async function rpc(method: string, params: unknown[], origin: string): Promise<unknown> {
   const s = await getSession();
-  const addr = s.mnemonic ? accountOf(s.mnemonic).address : undefined;
+  const addr = s.mnemonic ? (await active(s)).address : undefined;
   const connected = (await getConnected()).includes(origin);
   switch (method) {
     case "eth_chainId": return CHAIN_ID_HEX;
@@ -94,8 +124,8 @@ async function rpc(method: string, params: unknown[], origin: string): Promise<u
     case "eth_requestAccounts": {
       if (connected && addr) return [addr];
       await ask("connect", origin, []);
-      const a = (await getSession()).mnemonic;
-      return a ? [accountOf(a).address] : [];
+      const s2 = await getSession();
+      return s2.mnemonic ? [(await active(s2)).address] : [];
     }
     case "wallet_switchEthereumChain": {
       const id = (params[0] as { chainId?: string })?.chainId;
@@ -125,7 +155,7 @@ const rpcErr = (code: number, message: string) => Object.assign(new Error(messag
 async function executeApproval(a: Approval, override?: { to: Address; data: Hex }): Promise<unknown> {
   const s = await getSession();
   if (!s.mnemonic) throw rpcErr(4100, "Wallet is locked.");
-  const account = accountOf(s.mnemonic);
+  const account = await active(s);
   switch (a.kind) {
     case "connect": {
       const list = await getConnected();
@@ -158,14 +188,14 @@ async function handle(req: Req): Promise<unknown> {
     case "create": {
       if (await getVault()) throw new Error("A wallet already exists. Unlock it instead.");
       const mnemonic = generateMnemonic(english);
-      await local.set({ vault: await createVault(mnemonic, req.password) });
+      await local.set({ vault: await createVault(mnemonic, req.password), accountCount: 1, selected: 0, accountNames: {} });
       await setSession({ mnemonic });
       return { mnemonic };
     }
     case "import": {
       const m = req.mnemonic.trim().toLowerCase().replace(/\s+/g, " ");
       try { accountOf(m); } catch { throw new Error("That recovery phrase isn't valid. Check each word."); }
-      await local.set({ vault: await createVault(m, req.password) });
+      await local.set({ vault: await createVault(m, req.password), accountCount: 1, selected: 0, accountNames: {} });
       await setSession({ mnemonic: m });
       return null;
     }
@@ -177,8 +207,8 @@ async function handle(req: Req): Promise<unknown> {
       if (r.mode === "duress") {
         await setSession({ mnemonic: r.mnemonic }); // briefly, so the sweep can be signed
         await panic(r.mnemonic);
-        // Keep only a decoy address (index 1, key discarded): an empty wallet that cannot sign anything.
-        await setSession({ duress: true, decoy: accountOf(r.mnemonic, 1).address });
+        // Keep only a decoy address (an unused index, key discarded): an empty wallet that cannot sign anything.
+        await setSession({ duress: true, decoy: accountOf(r.mnemonic, DECOY_INDEX).address });
       } else {
         await setSession({ mnemonic: r.mnemonic });
       }
@@ -229,6 +259,41 @@ async function handle(req: Req): Promise<unknown> {
       await local.set({ watch: req.list.filter((a) => isAddress(a)) });
       return null;
     }
+    case "addAccount": {
+      const s = await getSession();
+      if (!s.mnemonic) throw new Error("Wallet is locked.");
+      const meta = await getMeta();
+      if (meta.count >= MAX_ACCOUNTS) throw new Error(`You can have up to ${MAX_ACCOUNTS} accounts.`);
+      await local.set({ accountCount: meta.count + 1, selected: meta.count });
+      return meta.count;
+    }
+    case "selectAccount": {
+      const meta = await getMeta();
+      if (!Number.isInteger(req.index) || req.index < 0 || req.index >= meta.count) throw new Error("That account doesn't exist.");
+      await local.set({ selected: req.index });
+      return null;
+    }
+    case "renameAccount": {
+      const meta = await getMeta();
+      if (req.index < 0 || req.index >= meta.count) throw new Error("That account doesn't exist.");
+      const name = req.name.trim().slice(0, 24);
+      const names = { ...meta.names };
+      if (name) names[String(req.index)] = name; else delete names[String(req.index)];
+      await local.set({ accountNames: names });
+      return null;
+    }
+    case "exportKey": {
+      const v = await getVault();
+      const r = v && (await unlockVault(v, req.password));
+      if (!r || r.mode !== "normal") throw new Error("That password isn't right.");
+      const key = accountOf(r.mnemonic, (await getMeta()).selected).getHdKey().privateKey;
+      if (!key) throw new Error("Couldn't read this account's key.");
+      return bytesToHex(key);
+    }
+    case "disconnectSite": {
+      await local.set({ connected: (await getConnected()).filter((o) => o !== req.origin) });
+      return null;
+    }
     case "approve": {
       const item = approvals.get(req.id);
       if (!item) throw new Error("This request has expired. Ask the site to try again.");
@@ -269,9 +334,11 @@ chrome.runtime.onStartup.addListener(() => void guard());
 async function guard() {
   await cfgReady;
   const s = await getSession();
-  const mine = s.mnemonic ? accountOf(s.mnemonic).address : undefined;
-  // Watching works while locked too; only your own wallet is added when it's unlocked.
-  const targets = [...new Set([...(mine ? [mine] : []), ...(await getWatch())])];
+  const meta = await getMeta();
+  const mineList = s.mnemonic ? Array.from({ length: meta.count }, (_, i) => accountOf(s.mnemonic!, i).address) : [];
+  const mineSet = new Set(mineList.map((a) => a.toLowerCase()));
+  // Watching works while locked too; your own accounts are added when it's unlocked.
+  const targets = [...new Set([...mineList, ...(await getWatch())])];
   const seen = ((await local.get("seen")).seen as Record<string, string[]> | undefined) ?? {};
   const next: Record<string, string[]> = {};
   let alerts = 0;
@@ -287,7 +354,7 @@ async function guard() {
         chrome.notifications.create(`${addr}:${fresh[0]}`, {
           type: "basic",
           iconUrl: "icon.png",
-          title: addr === mine ? "Something is waiting on your wallet" : `Activity on ${shortAddr(addr)}`,
+          title: mineSet.has(addr.toLowerCase()) ? "Something is waiting on your wallet" : `Activity on ${shortAddr(addr)}`,
           message: t
             ? `${fmtAmount(t.amount)} pUSDC is scheduled to ${shortAddr(t.to)}. Open Protected Wallet to stop it if it wasn't you.`
             : "A protection setting change is waiting. Open Protected Wallet to review it.",

@@ -28,3 +28,11 @@ export async function setTokenOverride(o?: Override) {
   if (o) await chrome.storage.local.set({ tokenOverride: o }); else await chrome.storage.local.remove("tokenOverride");
   apply(o);
 }
+
+/** Uniswap v4 scheduled swaps (src/ScheduledSwap.sol), same deployment as the web app. */
+export const SCHEDULER = ((import.meta.env.VITE_SCHEDULER as string | undefined) ?? "0x3aa82e9d481FDdf1913381ae2692c3FF272e4158") as `0x${string}`;
+/** The hookless 0.05% pUSDC/USDC v4 pool. A function, because PUSDC/USDC can be switched at runtime. */
+export const poolKey = () => {
+  const [c0, c1] = PUSDC.toLowerCase() < USDC.toLowerCase() ? [PUSDC, USDC] : [USDC, PUSDC];
+  return { currency0: c0, currency1: c1, fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" as `0x${string}` };
+};
