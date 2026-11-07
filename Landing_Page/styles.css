@@ -1667,3 +1667,30 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
 .nav .icon-link:active { transform: scale(0.94); }
 .nav .icon-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .nav .icon-link svg { width: 24px; height: 24px; }
+
+/* ───── Strip as a marquee: label fixed, wordmarks scroll continuously ───── */
+.strip { justify-content: flex-start; gap: calc(36 * var(--k)); }
+.strip-marquee {
+  display: flex; flex: 1 1 0; min-width: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  animation: fade 0.9s var(--ease-out) 1s both;
+}
+.strip-track {
+  display: flex; flex: none; align-items: center;
+  gap: calc(76 * var(--k)); padding-right: calc(76 * var(--k));
+  animation: strip-scroll 50s linear infinite;
+}
+.strip-marquee:hover .strip-track { animation-play-state: paused; }
+.strip-track li { animation: none; flex: none; }
+@keyframes strip-scroll { to { transform: translateX(-100%); } }
+@media (max-width: 900px) {
+  .strip { overflow: hidden; -webkit-mask-image: none; mask-image: none; padding-right: 0; gap: 18px; }
+  .strip > .strip-marquee { flex: 1 1 0; }
+  .strip-track { gap: 44px; padding-right: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .strip-track { animation: none !important; }
+  .strip-track:nth-child(2) { display: none; }
+  .strip-marquee { animation: none !important; }
+}
