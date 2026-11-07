@@ -87,6 +87,12 @@ The tests ([`test/ScheduledSwap.t.sol`](test/ScheduledSwap.t.sol)) run against t
 (`0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408`). They cover the happy path, a backup cancel, stress, the hold, `minOut`, ownership,
 hooked and wrong pools, delivery without a swap, the fast lane, refunds, and a thief triggering the swap. The pool is a hookless 0.05%
 pUSDC/USDC pool with liquidity concentrated within ±1% of 1.00, so a 15,000 swap costs about 0.1%.
+**Live on Base Sepolia:** a protected wallet (2-minute hold) scheduled a 5,000 pUSDC swap
+([queue](https://sepolia.basescan.org/tx/0x1a6e88d5b002a5c5d2295d3a280bd6f756af98817ca1b35ab92e2adba57d3c85),
+[register terms](https://sepolia.basescan.org/tx/0xd8a7e5ba1617f5cdc71dcea5126e5e8791804b7a338938f8026ec5f565e6071b)). Executing during the hold was refused.
+After the hold, another wallet acting as a keeper [executed it](https://sepolia.basescan.org/tx/0x35ec84612f3b0ff8f693132ead34775b7bfcff8d106070e4b3026e8323f233f2),
+and the owner received 4,996.67 USDC (0.07% total cost).
+
 Developer feedback is in [`FEEDBACK.md`](FEEDBACK.md).
 
 ## Private reads with anon-rpc ([`frontend/src/lib/anonRpc.ts`](frontend/src/lib/anonRpc.ts))
@@ -116,6 +122,8 @@ would want to know. Through the mixnet, the RPC provider can't tell who asked.
 | Base Sepolia (84532) | **pUSDC, current** (`ProtectedWrapper` around the demo USDC; fast lane, auto-scheduled wallet sends, minute-level minimums 60s/120s/60s) | [`0x033B36fE536e97d312Ece98750A0302eF31CBBab`](https://sepolia.basescan.org/address/0x033B36fE536e97d312Ece98750A0302eF31CBBab) |
 | Base Sepolia (84532) | Demo USDC: **test token, anyone can mint**, 6 decimals | [`0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be`](https://sepolia.basescan.org/address/0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be) |
 | Base Sepolia (84532) | Uniswap V2 pool, current pUSDC/USDC, seeded with 1M + 1M | [`0xfab232073e4008372C0454990978e8d8E882Aa88`](https://sepolia.basescan.org/address/0xfab232073e4008372C0454990978e8d8E882Aa88) |
+| Base Sepolia (84532) | **ScheduledSwap** (protected big swaps on Uniswap v4) | [`0x3aa82e9d481FDdf1913381ae2692c3FF272e4158`](https://sepolia.basescan.org/address/0x3aa82e9d481FDdf1913381ae2692c3FF272e4158) |
+| Base Sepolia (84532) | Uniswap v4 pUSDC/USDC pool: hookless, 0.05% fee, tick spacing 10, ~150k + ~150k within ±1% of 1.00, on the official PoolManager | PoolManager [`0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408`](https://sepolia.basescan.org/address/0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408) · init tx [`0xc3fc68f4…`](https://sepolia.basescan.org/tx/0xc3fc68f469b040f0a722c3c60b58aeedf5cc0492c14d40d3bd2121dc54bf1f3e) |
 
 <details><summary>Retired earlier deployments (first contract version, before fast lane and minute minimums)</summary>
 

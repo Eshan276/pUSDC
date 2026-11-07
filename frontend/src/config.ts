@@ -11,8 +11,8 @@ export const PUSDC = ((import.meta.env.VITE_PUSDC as string | undefined) ?? "0x0
 export const USDC = ((import.meta.env.VITE_USDC as string | undefined) ?? "0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be") as Address;
 export const DECIMALS = 6;
 
-/** Uniswap v4 scheduled swaps (see src/ScheduledSwap.sol). Zero address = feature hidden until deployed. */
-export const SCHEDULER = ((import.meta.env.VITE_SCHEDULER as string | undefined) ?? "0x0000000000000000000000000000000000000000") as Address;
+/** Uniswap v4 scheduled swaps (see src/ScheduledSwap.sol). Set VITE_SCHEDULER to the zero address to hide the feature. */
+export const SCHEDULER = ((import.meta.env.VITE_SCHEDULER as string | undefined) ?? "0x3aa82e9d481FDdf1913381ae2692c3FF272e4158") as Address;
 const [C0, C1] = PUSDC.toLowerCase() < USDC.toLowerCase() ? [PUSDC, USDC] : [USDC, PUSDC];
 /** The hookless 0.05% pUSDC/USDC v4 pool created by script/DeployScheduledSwap.s.sol. */
 export const POOL_KEY = { currency0: C0, currency1: C1, fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" as Address } as const;
