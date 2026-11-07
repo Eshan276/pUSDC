@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { formatUnits, getAddress, type Address } from "viem";
-import { ArrowDownToLine, ArrowUpFromLine, CalendarClock, CheckCircle2, ExternalLink, Hourglass, Inbox, Send, Zap } from "lucide-react";
-import { pusdcAbi, schedulerAbi, usdcAbi } from "../abi";
+import { CalendarClock, CheckCircle2, ExternalLink, Hourglass, Inbox, Send, Zap } from "lucide-react";
+import { pusdcAbi, schedulerAbi } from "../abi";
 import { useReadContracts } from "wagmi";
-import { DECIMALS, EXPLORER, POOL_KEY, PUSDC, SCHEDULER, USDC } from "../config";
+import { DECIMALS, EXPLORER, POOL_KEY, PUSDC, SCHEDULER } from "../config";
 import { addressProblem, fmtAmount, fmtCountdown, fmtDate, fmtDuration, parseAmount, shortAddr } from "../lib/format";
 import type { PendingTransfer, ProtectionData } from "../lib/useProtection";
 import { useTx } from "../lib/useTx";
@@ -12,7 +12,7 @@ import { Button, Card, Field, Notice, inputClass, useNow } from "./ui";
 const p = { address: PUSDC, abi: pusdcAbi } as const;
 
 /** Decides whether an outgoing amount goes out instantly or has to be scheduled. */
-function route(d: ProtectionData, amount: bigint | undefined) {
+export function route(d: ProtectionData, amount: bigint | undefined) {
   if (!amount) return { kind: "none" as const };
   if (amount > d.available) return { kind: "tooMuch" as const };
   if (!d.protected || amount <= d.dailyRemaining) return { kind: "instant" as const };
@@ -46,7 +46,7 @@ function AmountField({ id, label, value, onChange, max, maxLabel, error }: { id:
   );
 }
 
-function RouteNotice({ r, d, verb }: { r: ReturnType<typeof route>; d: ProtectionData; verb: string }) {
+export function RouteNotice({ r, d, verb }: { r: ReturnType<typeof route>; d: ProtectionData; verb: string }) {
   if (r.kind === "instant")
     return (
       <Notice tone="success" icon={<Zap />} title={`${verb} instantly`}>
@@ -120,74 +120,6 @@ export function SendPanel({ d, address }: { d: ProtectionData; address: Address 
         <PendingList title="Your scheduled transfers" transfers={d.pending} loading={d.pendingLoading} role="owner" fastLane={d.fastLane} />
       </div>
     </div>
-  );
-}
-
-export function WrapPanel({ d }: { d: ProtectionData }) {
-  const { run, busy } = useTx();
-  const [mode, setMode] = useState<"wrap" | "unwrap">("wrap");
-  const [amt, setAmt] = useState("");
-  const amount = parseAmount(amt);
-  const wrapErr = amt && !amount ? "Enter a valid amount." : amount && amount > d.usdcBalance ? `You have ${fmtAmount(d.usdcBalance)} USDC.` : undefined;
-  const r = route(d, amount);
-  const unwrapErr = amt && !amount ? "Enter a valid amount." : r.kind === "tooMuch" ? `Only ${fmtAmount(d.available)} pUSDC is free to withdraw.` : undefined;
-  const needsApproval = !!amount && d.usdcAllowance < amount;
-
-  async function wrap() {
-    if (!amount || wrapErr) return;
-    if (needsApproval && !(await run("approve", { address: USDC, abi: usdcAbi, functionName: "approve", args: [PUSDC, amount] }, "USDC approved, now protect it"))) return;
-    if (await run("wrap", { ...p, functionName: "deposit", args: [amount] }, `${fmtAmount(amount)} USDC is now protected`)) setAmt("");
-  }
-  async function unwrap() {
-    if (!amount || unwrapErr) return;
-    const ok =
-      r.kind === "scheduled"
-        ? await run("unwrap", { ...p, functionName: "queueTransfer", args: [PUSDC, amount] }, "Withdrawal scheduled")
-        : await run("unwrap", { ...p, functionName: "withdraw", args: [amount] }, `${fmtAmount(amount)} USDC is back in your wallet`);
-    if (ok) setAmt("");
-  }
-
-  return (
-    <Card className="mx-auto max-w-xl space-y-5">
-      <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="radiogroup" aria-label="Direction">
-        {(["wrap", "unwrap"] as const).map((m) => (
-          <button
-            key={m}
-            role="radio"
-            aria-checked={mode === m}
-            onClick={() => (setMode(m), setAmt(""))}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === m ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-          >
-            {m === "wrap" ? <ArrowDownToLine className="size-4" aria-hidden /> : <ArrowUpFromLine className="size-4" aria-hidden />}
-            {m === "wrap" ? "Add (USDC → pUSDC)" : "Withdraw (pUSDC → USDC)"}
-          </button>
-        ))}
-      </div>
-
-      {mode === "wrap" ? (
-        <>
-          <p className="text-sm text-muted-foreground">Every pUSDC is backed 1:1 by a USDC held in the contract. Adding is always instant and free of fees.</p>
-          <AmountField id="wrap-amount" label="USDC to protect" value={amt} onChange={setAmt} max={d.usdcBalance} maxLabel="In your wallet" error={wrapErr} />
-          {needsApproval && !wrapErr && (
-            <Notice tone="info" title="Two quick steps">
-              First your wallet asks to let the pUSDC contract take this USDC, then it asks to confirm adding it.
-            </Notice>
-          )}
-          <Button className="w-full" onClick={wrap} disabled={!amount || !!wrapErr} loading={busy === "approve" || busy === "wrap"}>
-            {busy === "approve" ? "Step 1 of 2: approving…" : busy === "wrap" && needsApproval ? "Step 2 of 2: protecting…" : "Protect my USDC"}
-          </Button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">Withdrawing turns pUSDC back into plain USDC, exactly 1:1. It counts as spending, so the same limits apply.</p>
-          <AmountField id="unwrap-amount" label="pUSDC to withdraw" value={amt} onChange={setAmt} max={d.available} maxLabel="Free to withdraw" error={unwrapErr} />
-          <RouteNotice r={r} d={d} verb="Withdraw" />
-          <Button className="w-full" onClick={unwrap} disabled={!amount || !!unwrapErr} loading={busy === "unwrap"}>
-            {r.kind === "scheduled" ? "Schedule withdrawal" : "Withdraw to USDC"}
-          </Button>
-        </>
-      )}
-    </Card>
   );
 }
 

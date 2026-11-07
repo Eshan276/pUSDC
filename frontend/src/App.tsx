@@ -6,41 +6,63 @@ import { CHAIN, TEST_MODE } from "./config";
 import { shortAddr } from "./lib/format";
 import { Button, Notice } from "./components/ui";
 import { Mark } from "./components/Mark";
-import { Welcome } from "./components/Welcome";
-import { Dashboard } from "./components/Dashboard";
+import { Avatar } from "./components/Avatar";
+import { PAGES, PAGE_LABELS, usePage } from "./lib/usePage";
+import { Dashboard, GuestPage } from "./components/Dashboard";
 import { friendlyError } from "./lib/errors";
 
 export default function App() {
   const { address, chainId, isConnected } = useConnection();
   const { mutate: disconnect } = useDisconnect();
+  const [page, go] = usePage();
   const wrongChain = isConnected && chainId !== CHAIN.id;
+
+  const nav = PAGES.map((p) => (
+    <a
+      key={p}
+      href={`#${p}`}
+      onClick={(e) => (e.preventDefault(), go(p))}
+      aria-current={page === p ? "page" : undefined}
+      className={`whitespace-nowrap rounded-full px-4 py-2 text-[15px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${page === p ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-card hover:text-foreground"}`}
+    >
+      {PAGE_LABELS[p]}
+    </a>
+  ));
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
-          <a href="./" className="flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Mark className="size-7" />
-            <span className="whitespace-nowrap text-lg font-bold tracking-tight sm:text-xl">Protected USDC</span>
+      <header className="sticky top-0 z-30 bg-background/70 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+          <a href="#swap" onClick={(e) => (e.preventDefault(), go("swap"))} className="flex items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Mark className="size-8" />
+            <span className="hidden whitespace-nowrap text-xl font-bold tracking-tight sm:inline">Protected USDC</span>
           </a>
-          <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-1.5 font-mono text-xs text-muted-foreground md:inline-flex">
-              <span className="opacity-60" aria-hidden>//</span>
-              <i className="size-2.5 rounded-full bg-primary" aria-hidden /> Network: <b className="font-semibold text-foreground">{CHAIN.name}</b>
+          <nav aria-label="Pages" className="ml-2 hidden gap-1 md:flex">{nav}</nav>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden items-center gap-1.5 whitespace-nowrap rounded-full bg-card px-3 py-2 text-sm font-medium shadow-sm ring-1 ring-border xl:inline-flex">
+              <i className="size-2.5 rounded-full bg-primary" aria-hidden /> {CHAIN.name}
             </span>
             <PrivacyPill />
-            {isConnected && (
-              <Button variant="secondary" onClick={() => disconnect()} aria-label={`Disconnect ${address}`} className="min-h-9 text-xs">
-                {shortAddr(address)} <LogOut className="size-4" aria-hidden />
-              </Button>
+            {isConnected ? (
+              <button
+                onClick={() => disconnect()}
+                aria-label={`Disconnect ${address}`}
+                title="Disconnect"
+                className="flex items-center gap-2 whitespace-nowrap rounded-full bg-card py-1.5 pl-1.5 pr-3 text-sm font-semibold shadow-sm ring-1 ring-border transition-colors hover:bg-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Avatar address={address!} className="size-7" /> <span className="font-mono">{shortAddr(address)}</span> <LogOut className="size-4 text-muted-foreground" aria-hidden />
+              </button>
+            ) : (
+              <ConnectButton className="!min-h-10 !rounded-full px-5 text-sm" label="Connect" compact />
             )}
           </div>
         </div>
+        <nav aria-label="Pages" className="flex gap-1 overflow-x-auto px-4 pb-2 md:hidden">{nav}</nav>
       </header>
 
       <PrivacyBanner />
-      <main className="mx-auto max-w-5xl px-4 pb-24 sm:px-6">
-        {!isConnected ? <Welcome /> : wrongChain ? <WrongNetwork /> : <Dashboard address={address!} />}
+      <main className="mx-auto w-full max-w-[520px] px-4 pb-24 pt-6 sm:pt-12">
+        {!isConnected ? <GuestPage page={page} /> : wrongChain && page !== "swap" ? <WrongNetwork /> : <Dashboard address={address!} page={page} go={go} />}
       </main>
 
       <footer className="mx-auto max-w-5xl px-4 pb-10 text-center text-xs text-muted-foreground sm:px-6">
@@ -64,7 +86,7 @@ function WrongNetwork() {
   );
 }
 
-export function ConnectButton({ className = "" }: { className?: string }) {
+export function ConnectButton({ className = "", label = "Connect your wallet", compact = false }: { className?: string; label?: string; compact?: boolean }) {
   const connectors = useConnectors();
   const { mutate: connect, isPending, error } = useConnect();
   const hasWallet = TEST_MODE || (typeof window !== "undefined" && "ethereum" in window);
@@ -75,17 +97,17 @@ export function ConnectButton({ className = "" }: { className?: string }) {
           href="https://metamask.io/download/"
           target="_blank"
           rel="noreferrer"
-          className={`inline-flex min-h-12 items-center justify-center rounded-md bg-ink px-6 font-mono text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
+          className={`inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary px-6 text-[15px] font-semibold text-primary-foreground hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
         >
-          Get a browser wallet
+          {label === "Connect your wallet" ? "Get a browser wallet" : label}
         </a>
-        <p className="text-sm text-muted-foreground">You'll need a wallet extension like MetaMask or Rabby. It's free.</p>
+        {!compact && <p className="text-center text-sm text-muted-foreground">You'll need a wallet extension like MetaMask or Rabby. It's free.</p>}
       </div>
     );
   return (
     <div className="space-y-2">
       <Button onClick={() => connect({ connector: connectors[0] })} loading={isPending} className={`min-h-12 px-6 text-sm ${className}`}>
-        Connect your wallet
+        {label}
       </Button>
       {error && friendlyError(error) && <Notice tone="danger">{friendlyError(error)}</Notice>}
     </div>
@@ -110,9 +132,9 @@ function PrivacyPill() {
         aria-expanded={open}
         aria-label={look.text}
         title={look.text}
-        className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 font-mono text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${look.cls}`}
+        className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3 font-mono text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${look.cls}`}
       >
-        {look.icon} <span className="hidden sm:inline">{look.text}</span>
+        {look.icon} <span className="hidden whitespace-nowrap xl:inline">{look.text}</span>
       </button>
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-80 space-y-3 rounded-lg border border-border bg-card p-4 text-sm shadow-lg">

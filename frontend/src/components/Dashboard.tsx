@@ -1,62 +1,49 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Address } from "viem";
-import { formatUnits } from "viem";
 import { useWatchAsset } from "wagmi";
-import { ArrowDownToLine, ArrowLeft, ArrowLeftRight, Check, ChevronRight, Clock, Copy, Droplets, FastForward, LifeBuoy, Lock, Plus, PlusCircle, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
+import { ArrowDownToLine, ArrowLeftRight, Check, ChevronRight, Clock, Copy, Droplets, FastForward, LifeBuoy, Lock, Plus, PlusCircle, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
 import { pusdcAbi, usdcAbi } from "../abi";
-import { DECIMALS, IS_TESTNET, PUSDC, SCHEDULER, USDC } from "../config";
-import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, shortAddr, toUnits } from "../lib/format";
+import { DECIMALS, IS_TESTNET, PUSDC, USDC } from "../config";
+import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, fmtUsd, shortAddr, toUnits } from "../lib/format";
 import { knownBackups, useProtection, type ProtectionData } from "../lib/useProtection";
 import { useAnonStatus } from "../lib/anonRpc";
 import { useTx } from "../lib/useTx";
+import type { Page } from "../lib/usePage";
+import { ConnectButton } from "../App";
 import { Button, Card, Notice, Progress, Skeleton, useNow } from "./ui";
+import { Avatar } from "./Avatar";
 import { Mark } from "./Mark";
-import { PendingList, SendPanel, WrapPanel } from "./Panels";
-import { SwapPanel } from "./Swap";
+import { PendingList, SendPanel } from "./Panels";
+import { SwapCard } from "./SwapCard";
 import { ProtectionPanel } from "./Protection";
 import { GuardianPanel } from "./Guardian";
 
-const SWAP_ENABLED = SCHEDULER !== "0x0000000000000000000000000000000000000000";
-const SCREENS = ["home", "send", "swap", "wrap", "protection", "backup", "receive"] as const;
-type Screen = (typeof SCREENS)[number];
-const TITLES: Record<Screen, string> = { home: "Wallet", send: "Send", swap: "Swap", wrap: "Add & withdraw", protection: "Protection", backup: "I'm a backup", receive: "Receive" };
-
-/** Which wallet screen is open, kept in the URL hash so links and the back button work. */
-function useScreen(): [Screen, (s: Screen) => void] {
-  const read = (): Screen => {
-    const id = window.location.hash.replace("#", "") as Screen;
-    return SCREENS.includes(id) && (id !== "swap" || SWAP_ENABLED) ? id : "home";
+/** Before a wallet is connected: the swap card works as a preview, other pages ask you to connect. */
+export function GuestPage({ page }: { page: Page }) {
+  if (page === "swap") return <SwapCard />;
+  const copy: Record<Exclude<Page, "swap">, string> = {
+    send: "Connect your wallet to send pUSDC. Small amounts go out instantly; bigger ones are scheduled for your safety.",
+    wallet: "Connect your wallet to see your balance, assets and scheduled transfers.",
+    protect: "Connect your wallet to turn protection on, choose a backup wallet and set your limits.",
+    backup: "Connect your wallet to watch over someone else's wallet as their backup.",
   };
-  const [screen, setScreen] = useState<Screen>(read);
-  useEffect(() => {
-    const on = () => setScreen(read());
-    window.addEventListener("hashchange", on);
-    return () => window.removeEventListener("hashchange", on);
-  }, []);
-  const go = (s: Screen) => {
-    history.pushState(null, "", s === "home" ? window.location.pathname + window.location.search : `#${s}`);
-    setScreen(s);
-    window.scrollTo({ top: 0 });
-  };
-  useEffect(() => {
-    const on = () => setScreen(read());
-    window.addEventListener("popstate", on);
-    return () => window.removeEventListener("popstate", on);
-  }, []);
-  return [screen, go];
+  return (
+    <Card className="space-y-5 text-center">
+      <Mark className="mx-auto size-16" />
+      <p className="text-muted-foreground text-pretty">{copy[page]}</p>
+      <ConnectButton className="min-h-14 w-full text-lg" label="Connect wallet" />
+    </Card>
+  );
 }
 
-const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-const fmtUsd = (v: bigint) => usd.format(Number(formatUnits(v, DECIMALS)));
-
-export function Dashboard({ address }: { address: Address }) {
+/** A connected wallet: loads its protection data once and renders the open page. */
+export function Dashboard({ address, page, go }: { address: Address; page: Page; go: (p: Page) => void }) {
   const { data, loading, error, refetch } = useProtection(address);
-  const [screen, go] = useScreen();
 
   if (loading) return <DashboardSkeleton />;
   if (error || !data)
     return (
-      <div className="mx-auto mt-16 max-w-md space-y-4">
+      <div className="mx-auto mt-10 max-w-md space-y-4">
         <Notice tone="danger" icon={<TriangleAlert />} title="Couldn't reach the network">
           This is usually temporary. Check your connection and try again.
         </Notice>
@@ -67,19 +54,21 @@ export function Dashboard({ address }: { address: Address }) {
     );
 
   return (
-    <div className="wallet-col mx-auto w-full max-w-[520px] space-y-5 pt-5">
-      {screen === "home" ? (
-        <Home d={data} address={address} go={go} />
+    <div className="wallet-col space-y-5">
+      {page === "swap" ? (
+        <>
+          <Alerts d={data} address={address} />
+          <SwapCard d={data} />
+        </>
+      ) : page === "wallet" ? (
+        <WalletPage d={data} address={address} go={go} />
       ) : (
         <>
-          <ScreenHeader title={TITLES[screen]} onBack={() => go("home")} />
+          <h1 className="px-1 text-2xl">{page === "send" ? "Send" : page === "protect" ? "Protection" : "I'm a backup"}</h1>
           <Alerts d={data} address={address} />
-          {screen === "send" && <SendPanel d={data} address={address} />}
-          {screen === "swap" && <SwapPanel d={data} address={address} />}
-          {screen === "wrap" && <WrapPanel d={data} />}
-          {screen === "protection" && <ProtectionPanel d={data} address={address} />}
-          {screen === "backup" && <GuardianPanel me={address} />}
-          {screen === "receive" && <ReceiveScreen d={data} address={address} />}
+          {page === "send" && <SendPanel d={data} address={address} />}
+          {page === "protect" && <ProtectionPanel d={data} address={address} />}
+          {page === "backup" && <GuardianPanel me={address} />}
         </>
       )}
     </div>
@@ -88,12 +77,13 @@ export function Dashboard({ address }: { address: Address }) {
 
 /* ───────────────────────── home ───────────────────────── */
 
-function Home({ d, address, go }: { d: ProtectionData; address: Address; go: (s: Screen) => void }) {
+function WalletPage({ d, address, go }: { d: ProtectionData; address: Address; go: (p: Page) => void }) {
+  const [receive, setReceive] = useState(false);
   const actions = [
-    { id: "send" as const, label: "Send", icon: Send },
-    ...(SWAP_ENABLED ? [{ id: "swap" as const, label: "Swap", icon: ArrowLeftRight }] : []),
-    { id: "wrap" as const, label: "Add", icon: Plus },
-    { id: "receive" as const, label: "Receive", icon: ArrowDownToLine },
+    { id: "send", label: "Send", icon: Send, onClick: () => go("send") },
+    { id: "swap", label: "Swap", icon: ArrowLeftRight, onClick: () => go("swap") },
+    { id: "add", label: "Add", icon: Plus, onClick: () => go("swap") },
+    { id: "receive", label: "Receive", icon: ArrowDownToLine, onClick: () => setReceive(!receive) },
   ];
   return (
     <>
@@ -101,15 +91,17 @@ function Home({ d, address, go }: { d: ProtectionData; address: Address; go: (s:
       <Alerts d={d} address={address} />
       <BalanceHero d={d} go={go} />
       <div className="grid grid-cols-4 gap-2" role="group" aria-label="Actions">
-        {actions.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => go(id)} className="group flex flex-col items-center gap-2 rounded-xl py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <span className="grid size-14 place-items-center rounded-full bg-ink text-white transition-colors group-hover:bg-ink-hover group-active:scale-95">
+        {actions.map(({ id, label, icon: Icon, onClick }) => (
+          <button key={id} onClick={onClick} className="group flex flex-col items-center gap-2 rounded-xl py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="grid size-14 place-items-center rounded-full bg-primary text-primary-foreground transition-all group-hover:brightness-95 group-active:scale-95">
               <Icon className="size-6" aria-hidden />
             </span>
             <span className="font-mono text-xs">{label}</span>
           </button>
         ))}
       </div>
+
+      {receive && <ReceiveScreen d={d} address={address} />}
 
       <Assets d={d} go={go} />
 
@@ -121,20 +113,13 @@ function Home({ d, address, go }: { d: ProtectionData; address: Address; go: (s:
           tone={d.protected ? "primary" : "muted"}
           title="Protection"
           sub={d.protected ? `Up to ${fmtAmount(d.dailyLimit)} pUSDC a day · bigger waits ${fmtDuration(d.holdWindow)}` : "Off. Set it up in a minute"}
-          onClick={() => go("protection")}
+          onClick={() => go("protect")}
         />
         <Row icon={LifeBuoy} tone="muted" title="I'm a backup" sub="Watch over someone else's wallet" onClick={() => go("backup")} />
       </ul>
       <div className="pb-6" />
     </>
   );
-}
-
-function Avatar({ address, className = "size-10" }: { address: string; className?: string }) {
-  // A repeatable blue-ish gradient from the address, so each account looks like itself.
-  const n = parseInt(address.slice(2, 10), 16);
-  const h1 = 190 + (n % 70), h2 = 200 + ((n >> 8) % 70);
-  return <span aria-hidden className={`${className} shrink-0 rounded-full`} style={{ background: `linear-gradient(135deg, hsl(${h1} 78% 52%), hsl(${h2} 72% 32%))` }} />;
 }
 
 function AccountBar({ address }: { address: Address }) {
@@ -156,7 +141,7 @@ function AccountBar({ address }: { address: Address }) {
   );
 }
 
-function BalanceHero({ d, go }: { d: ProtectionData; go: (s: Screen) => void }) {
+function BalanceHero({ d, go }: { d: ProtectionData; go: (p: Page) => void }) {
   const chips = [
     { label: "Free", value: d.available, show: true },
     { label: "Scheduled", value: d.reserved, show: d.reserved > 0n },
@@ -179,7 +164,7 @@ function BalanceHero({ d, go }: { d: ProtectionData; go: (s: Screen) => void }) 
         </ul>
       )}
       {d.protected ? (
-        <button onClick={() => go("protection")} className="block w-full space-y-2 rounded-lg bg-primary-soft p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <button onClick={() => go("protect")} className="block w-full space-y-2 rounded-lg bg-primary-soft p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span className="flex items-center justify-between gap-2 text-sm font-medium text-primary-soft-foreground">
             <span className="flex items-center gap-1.5"><ShieldCheck className="size-4" aria-hidden /> You're protected</span>
             <span className="font-mono text-xs tabular"><b>{fmtAmount(d.dailyRemaining)}</b> of {fmtAmount(d.dailyLimit)} left today</span>
@@ -189,14 +174,14 @@ function BalanceHero({ d, go }: { d: ProtectionData; go: (s: Screen) => void }) 
       ) : (
         <div className="flex items-center justify-between gap-3 rounded-lg bg-warning-soft p-3">
           <span className="flex items-center gap-2 text-sm font-medium text-warning-foreground"><ShieldOff className="size-4 shrink-0" aria-hidden /> Protection is off</span>
-          <Button onClick={() => go("protection")} className="min-h-9 shrink-0 text-xs">Set it up</Button>
+          <Button onClick={() => go("protect")} className="min-h-9 shrink-0 text-xs">Set it up</Button>
         </div>
       )}
     </Card>
   );
 }
 
-function Assets({ d, go }: { d: ProtectionData; go: (s: Screen) => void }) {
+function Assets({ d, go }: { d: ProtectionData; go: (p: Page) => void }) {
   return (
     <section aria-label="Assets">
       <h2 className="mb-2 px-1 font-mono text-[11px] font-normal uppercase tracking-wide text-muted-foreground">Assets</h2>
@@ -221,7 +206,7 @@ function Assets({ d, go }: { d: ProtectionData; go: (s: Screen) => void }) {
           <div className="text-right">
             <p className="font-medium tabular">{fmtUsd(d.usdcBalance)}</p>
             {d.usdcBalance > 0n ? (
-              <button onClick={() => go("wrap")} className="font-mono text-xs font-medium text-primary underline-offset-2 hover:underline">Protect it</button>
+              <button onClick={() => go("swap")} className="font-mono text-xs font-medium text-primary underline-offset-2 hover:underline">Protect it</button>
             ) : (
               <p className="font-mono text-xs text-muted-foreground tabular">{fmtAmount(d.usdcBalance)}</p>
             )}
@@ -246,17 +231,6 @@ function Row({ icon: Icon, tone, title, sub, onClick }: { icon: typeof ShieldChe
         <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
       </button>
     </li>
-  );
-}
-
-function ScreenHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <button onClick={onBack} aria-label="Back to wallet" className="grid size-10 place-items-center rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <ArrowLeft className="size-5" aria-hidden />
-      </button>
-      <h1 className="text-2xl">{title}</h1>
-    </div>
   );
 }
 

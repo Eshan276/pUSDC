@@ -10,27 +10,26 @@ A blue coin (`#005ac5`) holding a split white shield with a dollar sign. Master 
 ## Palette (tokens in `frontend/src/index.css`, shared by the extension)
 | Token | Value | Use |
 | --- | --- | --- |
-| background | `#f3f3f4` | page |
-| card | white | surfaces, 1px border `rgb(0 0 0 / 0.14)` |
-| foreground / ink | `#0b0b0d` | text, primary buttons |
-| muted-foreground | `#55555c` | secondary text |
-| primary | USDC blue `#2775ca` | safety, highlights, progress, links |
-| primary-soft | `#e7f0fb` | "you're protected" surfaces |
+| background | `#f1f6fd` with a soft blue glow at the top | page |
+| card | white, 24px radius, gentle blue-tinted shadow | surfaces |
+| muted | `#eaf0fa` | token boxes, inputs |
+| foreground | `#0d1426` | text |
+| primary | blue `#2272d8` | main actions, active nav, progress, links |
+| primary-soft | `#e4eeff` | selected/active surfaces, "you're protected" |
 | warning-soft | soft amber | anything waiting: scheduled transfers, pending changes |
 | danger | red | emergency only, never decoration |
 
 Light only: there is no dark mode.
 
 ## Type
-- **DM Sans** (variable, self-hosted, optical sizing): headlines and copy. Headlines are light (300) and tightly tracked (-0.025em).
-- **JetBrains Mono** (variable, self-hosted): all UI text: buttons, labels, addresses, stat chips.
+- **DM Sans** (variable, self-hosted, optical sizing): everything, with big tabular numerals for amounts. Headings are medium weight.
+- **JetBrains Mono** (variable, self-hosted): addresses and small labels only.
 - No Google Fonts or other third-party requests.
 
-## Layout: it should feel like a wallet
-- A thin flat header: logo and wordmark, a `// Network:` chip.
-- Home is a single centred column: an account row (gradient avatar + copyable address), one big balance in dollars with the protection status under it, a row of round black actions (Send, Swap, Add, Receive), an asset list, scheduled transfers, and settings-style rows.
-- Every action opens as its own screen with a back button, not as a tab in a dashboard.
-- Buttons are black with sentence-case mono text and a 6px radius; cards are flat white with a 12px radius. No shadows, no glass.
+## Layout: an exchange in the web app, a wallet in the extension
+- **Web app:** a top bar with the logo, a pill nav (Swap, Send, Wallet, Protect, Backup), the network and a Connect / account pill. The swap card is the front page and works before connecting: "You pay" and "You receive" boxes with token pills, a flip arrow, rate / route / fee details and one big blue button whose label walks through Connect wallet, Enter an amount, Insufficient balance, Approve and Swap. USDC to pUSDC wraps 1:1; pUSDC to USDC unwraps 1:1 or, for a protected account, can be scheduled as a real Uniswap v4 swap. Pending scheduled transfers appear under the card.
+- **Extension:** a wallet popup: account switcher, one big balance, round actions, assets, activity, settings rows.
+- Buttons are large and rounded, filled blue; cards are big, white and softly shadowed.
 
 ## Voice
 - Plain words, second person: "You're protected", "Bigger transfers wait 3 days".
