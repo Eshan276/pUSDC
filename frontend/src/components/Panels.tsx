@@ -149,14 +149,14 @@ export function WrapPanel({ d }: { d: ProtectionData }) {
 
   return (
     <Card className="mx-auto max-w-xl space-y-5">
-      <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1" role="radiogroup" aria-label="Direction">
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="radiogroup" aria-label="Direction">
         {(["wrap", "unwrap"] as const).map((m) => (
           <button
             key={m}
             role="radio"
             aria-checked={mode === m}
             onClick={() => (setMode(m), setAmt(""))}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === m ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === m ? "bg-card shadow-sm" : "text-muted-foreground"}`}
           >
             {m === "wrap" ? <ArrowDownToLine className="size-4" aria-hidden /> : <ArrowUpFromLine className="size-4" aria-hidden />}
             {m === "wrap" ? "Add (USDC → pUSDC)" : "Withdraw (pUSDC → USDC)"}
@@ -210,7 +210,7 @@ export function PendingList({ title, transfers, loading, role, fastLane, emptyTe
     <Card className="space-y-4">
       <h2 className="text-lg font-bold">{title}</h2>
       {loading ? (
-        <div className="h-20 rounded-2xl bg-muted motion-safe:animate-pulse" aria-hidden />
+        <div className="h-20 rounded-lg bg-muted motion-safe:animate-pulse" aria-hidden />
       ) : transfers.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
           <Inbox className="size-8 text-muted-foreground" aria-hidden />
@@ -233,7 +233,7 @@ export function PendingList({ title, transfers, loading, role, fastLane, emptyTe
               order!.key.currency1.toLowerCase() === POOL_KEY.currency1.toLowerCase() &&
               order!.key.fee === POOL_KEY.fee;
             return (
-              <li key={String(t.id)} className="space-y-3 rounded-2xl border border-border p-4">
+              <li key={String(t.id)} className="space-y-3 rounded-lg border border-border p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-bold tabular">{fmtAmount(t.amount)} pUSDC</p>
@@ -250,11 +250,11 @@ export function PendingList({ title, transfers, loading, role, fastLane, emptyTe
                     </p>
                   </div>
                   {ready ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary-soft-foreground">
+                    <span className="inline-flex items-center gap-1 rounded bg-primary-soft px-2 py-1 font-mono text-xs font-medium text-primary-soft-foreground">
                       <CheckCircle2 className="size-3.5" aria-hidden /> Ready
                     </span>
                   ) : (
-                    <span className="rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-foreground tabular">{fmtCountdown(left)}</span>
+                    <span className="rounded bg-warning-soft px-2 py-1 font-mono text-xs font-medium text-warning-foreground tabular">{fmtCountdown(left)}</span>
                   )}
                 </div>
                 {!ready && (
@@ -264,7 +264,7 @@ export function PendingList({ title, transfers, loading, role, fastLane, emptyTe
                   </p>
                 )}
                 {isSwap && order && (!registered || !usualPool) && role !== "owner" && (
-                  <p className="rounded-xl bg-warning-soft p-3 text-xs text-warning-foreground">
+                  <p className="rounded-md bg-warning-soft p-3 text-xs text-warning-foreground">
                     {!registered
                       ? "No swap terms attached. If it goes through, the pUSDC can only be refunded to the owner."
                       : "This uses an unusual pool. If the owner didn't set this up, stop it."}
@@ -301,7 +301,7 @@ export function PendingList({ title, transfers, loading, role, fastLane, emptyTe
                     href={`${EXPLORER}/address/${t.to}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="inline-flex min-h-11 items-center gap-1 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Recipient <ExternalLink className="size-3.5" aria-hidden />
                   </a>

@@ -1,26 +1,33 @@
 # Brand: Protected USDC
 
-_Status: active_
+_Status: active. The web app, the browser extension and the landing page share this theme._
 
-**Feeling:** calm, warm and reassuring, like a seatbelt, not a vault door. Safety without fear.
+**Feeling:** calm, precise and flat, like a good terminal: lots of air, black ink, one confident blue. Safety without fear.
 
-## Palette (OKLCH tokens in `frontend/src/index.css`)
-| Token | Light | Use |
+## Palette (tokens in `frontend/src/index.css`; the landing page uses the same values)
+| Token | Value | Use |
 | --- | --- | --- |
-| background | warm cream `oklch(0.985 0.008 85)` | page |
-| card | white | surfaces |
-| foreground | warm charcoal `oklch(0.25 0.02 60)` | text |
-| muted-foreground | `oklch(0.47 0.02 60)` | secondary text (AA on cream) |
-| primary | deep teal `oklch(0.47 0.09 185)` | safety, "you're protected", main actions |
-| warning-soft / -foreground | soft amber | anything waiting: scheduled transfers, pending changes |
-| danger | red `oklch(0.54 0.19 27)` | emergency only, never decoration |
+| background | `#f3f3f4` | page |
+| card | white | surfaces, 1px border `rgb(0 0 0 / 0.14)` |
+| foreground / ink | `#0b0b0d` | text, primary buttons |
+| muted-foreground | `#55555c` | secondary text |
+| primary | USDC blue `#2775ca` | safety, highlights, progress, links |
+| primary-soft | `#e7f0fb` | "you're protected" surfaces |
+| warning-soft | soft amber | anything waiting: scheduled transfers, pending changes |
+| danger | red | emergency only, never decoration |
 
-Dark mode uses the same hues with lifted teal (`oklch(0.74 0.11 180)`) and warm near-black surfaces.
+Light only: there is no dark mode.
 
 ## Type
-- Plus Jakarta Sans (variable, self-hosted): UI and headings, extrabold for big numbers.
-- JetBrains Mono (variable, self-hosted): addresses only.
+- **DM Sans** (variable, self-hosted, optical sizing): headlines and copy. Headlines are light (300) and tightly tracked (-0.025em).
+- **JetBrains Mono** (variable, self-hosted): all UI text: buttons, labels, addresses, stat chips.
+- **Newsreader italic** (self-hosted): only the highlighted phrase in a headline, white on a solid blue box.
 - No Google Fonts or other third-party requests.
+
+## Shapes and motion
+- Buttons are black with sentence-case mono text and a 6px radius; cards are flat white with a 12px radius. No shadows, no glass.
+- The header is a thin flat bar: mark and wordmark, a `// Network:` chip, then actions.
+- The hero artwork is ten clusters of ASCII characters (`: * L V I S`) that breathe and drift quietly. Motion respects `prefers-reduced-motion`.
 
 ## Voice
 - Plain words, second person: "You're protected", "Bigger transfers wait 3 days".

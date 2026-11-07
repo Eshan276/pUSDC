@@ -38,7 +38,7 @@ export function GuardianPanel({ me }: { me: Address }) {
     <div className="space-y-6">
       <Card className="space-y-4">
         <div className="flex items-start gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary-soft-foreground">
+          <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-soft-foreground">
             <HeartHandshake className="size-5" aria-hidden />
           </span>
           <div>
@@ -96,7 +96,7 @@ function Watched({ account, me, onRemove }: { account: Address; me: Address; onR
       <Card className="space-y-4 lg:col-span-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className={`grid size-11 place-items-center rounded-2xl ${data.protected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+            <span className={`grid size-11 place-items-center rounded-lg ${data.protected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
               {data.protected ? <ShieldCheck className="size-5" aria-hidden /> : <ShieldOff className="size-5" aria-hidden />}
             </span>
             <div>
@@ -106,7 +106,7 @@ function Watched({ account, me, onRemove }: { account: Address; me: Address; onR
               </p>
             </div>
           </div>
-          <button onClick={onRemove} aria-label={`Stop watching ${account}`} className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button onClick={onRemove} aria-label={`Stop watching ${account}`} className="grid size-10 place-items-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <X className="size-4" aria-hidden />
           </button>
         </div>
@@ -116,7 +116,7 @@ function Watched({ account, me, onRemove }: { account: Address; me: Address; onR
           </Notice>
         ) : (
           data.protected && (
-            <div className="space-y-3 rounded-2xl bg-danger-soft p-4">
+            <div className="space-y-3 rounded-lg bg-danger-soft p-4">
               <p className="flex items-center gap-2 font-semibold text-danger-soft-foreground">
                 <LifeBuoy className="size-5" aria-hidden /> Emergency: bring their funds to you
               </p>

@@ -84,7 +84,7 @@ function Tabs({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
     refs.current[next]?.focus();
   };
   return (
-    <div role="tablist" aria-label="Actions" className={`grid gap-1 rounded-2xl bg-muted p-1 sm:flex ${TABS.length > 4 ? "grid-cols-3" : "grid-cols-2"}`}>
+    <div role="tablist" aria-label="Actions" className={`grid gap-1 rounded-lg bg-muted p-1 sm:flex ${TABS.length > 4 ? "grid-cols-3" : "grid-cols-2"}`}>
       {TABS.map((t, i) => (
         <button
           key={t.id}
@@ -98,7 +98,7 @@ function Tabs({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
           tabIndex={tab === t.id ? 0 : -1}
           onClick={() => setTab(t.id)}
           onKeyDown={(e) => onKey(e, i)}
-          className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          className={`min-h-11 flex-1 whitespace-nowrap rounded-md px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             tab === t.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -118,7 +118,7 @@ function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Addre
     return (
       <Card className="lg:col-span-3">
         <div className="flex items-start gap-4">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-muted text-muted-foreground">
+          <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
             <ShieldOff className="size-6" aria-hidden />
           </span>
           <div className="space-y-1">
@@ -147,7 +147,7 @@ function StatusCard({ d, address, onSetup }: { d: ProtectionData; address: Addre
   return (
     <Card className="space-y-5 lg:col-span-3">
       <div className="flex items-start gap-4">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
+        <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
           <ShieldCheck className="size-6" aria-hidden />
         </span>
         <div className="space-y-1">

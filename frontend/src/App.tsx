@@ -1,10 +1,11 @@
 import { useConnection, useConnect, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
 import { useState } from "react";
-import { EyeOff, Loader2, LogOut, ShieldCheck, TriangleAlert, Wifi } from "lucide-react";
+import { EyeOff, Loader2, LogOut, TriangleAlert, Wifi } from "lucide-react";
 import { privateRpcEnabled, retryPrivate, setPrivateRpc, useAnonStatus } from "./lib/anonRpc";
 import { CHAIN, TEST_MODE } from "./config";
 import { shortAddr } from "./lib/format";
 import { Button, Notice } from "./components/ui";
+import { Mark } from "./components/Mark";
 import { Welcome } from "./components/Welcome";
 import { Dashboard } from "./components/Dashboard";
 import { friendlyError } from "./lib/errors";
@@ -16,23 +17,24 @@ export default function App() {
 
   return (
     <div className="min-h-dvh">
-      <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-        <a href="./" className="flex items-center gap-2 rounded-xl font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <ShieldCheck className="size-5" aria-hidden />
-          </span>
-          <span className="text-lg tracking-tight">Protected USDC</span>
-        </a>
-        <div className="flex items-center gap-2">
-          <span className="hidden items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground sm:inline-flex">
-            <Wifi className="size-3.5" aria-hidden /> {CHAIN.name} · test network
-          </span>
-          <PrivacyPill />
-          {isConnected && (
-            <Button variant="secondary" onClick={() => disconnect()} aria-label={`Disconnect ${address}`} className="font-mono text-xs">
-              {shortAddr(address)} <LogOut className="size-4" aria-hidden />
-            </Button>
-          )}
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
+          <a href="./" className="flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Mark className="size-7" />
+            <span className="whitespace-nowrap text-lg font-bold tracking-tight sm:text-xl">Protected USDC</span>
+          </a>
+          <div className="flex items-center gap-3">
+            <span className="hidden items-center gap-1.5 font-mono text-xs text-muted-foreground md:inline-flex">
+              <span className="opacity-60" aria-hidden>//</span>
+              <i className="size-2.5 rounded-full bg-primary" aria-hidden /> Network: <b className="font-semibold text-foreground">{CHAIN.name}</b>
+            </span>
+            <PrivacyPill />
+            {isConnected && (
+              <Button variant="secondary" onClick={() => disconnect()} aria-label={`Disconnect ${address}`} className="min-h-9 text-xs">
+                {shortAddr(address)} <LogOut className="size-4" aria-hidden />
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -73,7 +75,7 @@ export function ConnectButton({ className = "" }: { className?: string }) {
           href="https://metamask.io/download/"
           target="_blank"
           rel="noreferrer"
-          className={`inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-6 font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
+          className={`inline-flex min-h-12 items-center justify-center rounded-md bg-ink px-6 font-mono text-sm font-medium text-white hover:bg-ink-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
         >
           Get a browser wallet
         </a>
@@ -82,7 +84,7 @@ export function ConnectButton({ className = "" }: { className?: string }) {
     );
   return (
     <div className="space-y-2">
-      <Button onClick={() => connect({ connector: connectors[0] })} loading={isPending} className={`min-h-12 px-6 text-base ${className}`}>
+      <Button onClick={() => connect({ connector: connectors[0] })} loading={isPending} className={`min-h-12 px-6 text-sm ${className}`}>
         Connect your wallet
       </Button>
       {error && friendlyError(error) && <Notice tone="danger">{friendlyError(error)}</Notice>}
@@ -106,12 +108,14 @@ function PrivacyPill() {
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${look.cls}`}
+        aria-label={look.text}
+        title={look.text}
+        className={`inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 font-mono text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${look.cls}`}
       >
-        {look.icon} {look.text}
+        {look.icon} <span className="hidden sm:inline">{look.text}</span>
       </button>
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 space-y-3 rounded-2xl border border-border bg-card p-4 text-sm shadow-lg">
+        <div className="absolute right-0 z-40 mt-2 w-80 space-y-3 rounded-lg border border-border bg-card p-4 text-sm shadow-lg">
           <p className="font-semibold">Who can see what you look up?</p>
           <p className="text-muted-foreground">
             {enabled

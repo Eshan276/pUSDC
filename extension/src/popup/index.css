@@ -2,4 +2,4 @@
 @source "../../../frontend/src/components";
 html, body { min-height: 560px; }
 html:not(.tab):not(.win) body { width: 380px; }
-body { font-family: "Plus Jakarta Sans Variable", system-ui, sans-serif; background: var(--background); color: var(--foreground); }
+body { background: var(--background); color: var(--foreground); }

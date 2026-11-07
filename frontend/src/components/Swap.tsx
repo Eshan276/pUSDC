@@ -64,7 +64,7 @@ export function SwapPanel({ d }: { d: ProtectionData; address: Address }) {
         <div className="flex items-center justify-center text-muted-foreground" aria-hidden>
           <ArrowDownUp className="size-5" />
         </div>
-        <div className="rounded-2xl bg-muted p-4 text-sm">
+        <div className="rounded-lg bg-muted p-4 text-sm">
           <p className="flex justify-between gap-2">
             <span className="text-muted-foreground">You'll get at least</span>
             <span className="font-bold tabular">{fmtAmount(minOut)} USDC</span>

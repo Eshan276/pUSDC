@@ -5,7 +5,7 @@ const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:rin
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 const variants: Record<Variant, string> = {
-  primary: "bg-primary text-primary-foreground hover:brightness-110",
+  primary: "bg-ink text-white hover:bg-ink-hover",
   secondary: "bg-card text-foreground border border-border hover:bg-muted",
   ghost: "text-foreground hover:bg-muted",
   danger: "bg-danger text-danger-foreground hover:brightness-110",
@@ -24,7 +24,7 @@ export function Button({
       {...rest}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-[filter,background-color,opacity] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${focus} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 font-mono text-[13px] font-medium transition-[filter,background-color,opacity,transform] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${focus} ${className}`}
     >
       {loading && <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />}
       {children}
@@ -33,7 +33,7 @@ export function Button({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl border border-border bg-card p-5 sm:p-6 ${className}`}>{children}</section>;
+  return <section className={`rounded-xl border border-border bg-card p-5 sm:p-6 ${className}`}>{children}</section>;
 }
 
 export function Notice({ tone = "info", icon, title, children }: { tone?: "info" | "warning" | "danger" | "success"; icon?: ReactNode; title?: string; children?: ReactNode }) {
@@ -44,7 +44,7 @@ export function Notice({ tone = "info", icon, title, children }: { tone?: "info"
     danger: "bg-danger-soft text-danger-soft-foreground",
   }[tone];
   return (
-    <div className={`flex gap-3 rounded-2xl p-4 text-sm ${t}`}>
+    <div className={`flex gap-3 rounded-lg p-4 text-sm ${t}`}>
       {icon && <span className="mt-0.5 shrink-0 [&>svg]:size-5" aria-hidden>{icon}</span>}
       <div className="min-w-0 space-y-1">
         {title && <p className="font-semibold">{title}</p>}
@@ -68,10 +68,10 @@ export function Field({ label, hint, error, htmlFor, children }: { label: string
   );
 }
 
-export const inputClass = `w-full min-h-12 rounded-xl border border-border bg-background px-4 text-base placeholder:text-muted-foreground/80 ${focus}`;
+export const inputClass = `w-full min-h-12 rounded-md border border-border bg-background px-4 text-base placeholder:text-muted-foreground/80 ${focus}`;
 
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`rounded-xl bg-muted motion-safe:animate-pulse ${className}`} aria-hidden />;
+  return <div className={`rounded-md bg-muted motion-safe:animate-pulse ${className}`} aria-hidden />;
 }
 
 export function Progress({ value, label }: { value: number; label: string }) {
@@ -129,7 +129,7 @@ export function HoldButton({ onConfirm, children, disabled, loading, ms = 1500 }
       onPointerLeave={stop}
       onKeyDown={(e) => (e.key === " " || e.key === "Enter") && (e.preventDefault(), begin())}
       onKeyUp={stop}
-      className={`relative inline-flex min-h-12 w-full select-none items-center justify-center gap-2 overflow-hidden rounded-xl bg-danger px-4 text-sm font-semibold text-danger-foreground touch-none disabled:cursor-not-allowed disabled:opacity-50 ${focus}`}
+      className={`relative inline-flex min-h-12 w-full select-none items-center justify-center gap-2 overflow-hidden rounded-md bg-danger px-4 text-sm font-semibold text-danger-foreground touch-none disabled:cursor-not-allowed disabled:opacity-50 ${focus}`}
     >
       <span className="absolute inset-y-0 left-0 bg-black/20" style={{ width: `${progress * 100}%` }} aria-hidden />
       <span className="relative flex items-center gap-2">
