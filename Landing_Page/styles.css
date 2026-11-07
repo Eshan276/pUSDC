@@ -1625,3 +1625,20 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
 .rings i:nth-child(2) { border-color: rgb(255 255 255 / 0.13); }
 .rings i:nth-child(3) { border-color: rgb(255 255 255 / 0.09); }
 .rings i:nth-child(4) { border-color: rgb(255 255 255 / 0.07); }
+
+/* ───── Header: larger type (taller bar to match) ───── */
+.nav { height: calc(38 * var(--k)); min-height: 38px; padding: 0 calc(14 * var(--k)); }
+.nav .mark { width: 22px; height: 22px; }
+.nav .brand { gap: 8px; }
+.nav .brand-text { font-size: 18px; }
+.stats { font-size: 12px; gap: 10px; margin-left: 10px; }
+.stats li { gap: 6px; }
+.stats .slash { margin: 0 6px 0 2px; }
+.dot { width: 11px; height: 11px; }
+.nav-right { gap: 22px; }
+.nav .nav-links { gap: 22px; }
+.nav .nav-links a { font-size: 12.5px; }
+.btn-launch { height: 30px; padding: 0 14px; font-size: 12.5px; }
+@media (max-width: 1240px) { .stats li:nth-child(3) { display: none; } }
+@media (max-width: 1040px) { .stats li:nth-child(2) { display: none; } }
+@media (max-width: 900px) { .nav .brand-text { font-size: 17px; } .btn-launch { height: 30px; font-size: 12.5px; } }
