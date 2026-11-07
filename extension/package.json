@@ -8,12 +8,14 @@
     "build": "tsc -p . && vite build && ENTRY=inpage vite build && ENTRY=content vite build",
     "dev": "vite build --watch",
     "test:e2e": "node tests/e2e.mjs",
-    "test:e2e:fast": "node tests/e2e-fast.mjs"
+    "test:e2e:fast": "node tests/e2e-fast.mjs",
+    "test:e2e:wallet": "node tests/e2e-wallet.mjs"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "lucide-react": "^1.70.0",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "viem": "^2.57.16"
@@ -25,7 +27,9 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
+    "jsqr": "^1.4.0",
     "playwright-core": "^1.65.0",
+    "pngjs": "^7.0.0",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.6"

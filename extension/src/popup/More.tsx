@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, ChevronRight, ExternalLink, History, KeyRound, Lock, LogOut, ShieldAlert, ShieldCheck, Siren, Timer } from "lucide-react";
+import { ArrowLeft, ChevronRight, ExternalLink, Globe, History, KeyRound, Lock, LogOut, ShieldAlert, ShieldCheck, Siren, Timer } from "lucide-react";
 import type { Address } from "viem";
 import { isAddress } from "viem";
 import { pusdcAbi } from "@abi";
@@ -14,10 +14,12 @@ import type { Protection } from "../shared/read";
 import type { WalletState } from "../shared/messages";
 import { call } from "./api";
 import { PhraseGrid, strength } from "./Onboarding";
-import { useSend, type Activity } from "./useSend";
+import { useSend } from "./useSend";
+import { useActivity } from "./useWallet";
+import { ActivityRow } from "./wallet";
 
 type Tx = ReturnType<typeof useSend>;
-type Page = "menu" | "protection" | "security" | "activity" | "emergency" | "token";
+type Page = "menu" | "protection" | "security" | "activity" | "emergency" | "token" | "sites";
 
 export function MoreTab(p: { data: Protection | undefined; me: Address; tx: Tx; state: WalletState; refresh: () => void; initialPage?: Page }) {
   const [page, setPage] = useState<Page>(p.initialPage ?? "menu");
@@ -28,7 +30,8 @@ export function MoreTab(p: { data: Protection | undefined; me: Address; tx: Tx; 
       { id: "protection", icon: ShieldCheck, title: "Protection settings", sub: p.data?.protected ? "Limit, waiting time, backup" : "Not turned on yet" },
       { id: "emergency", icon: ShieldAlert, title: "Emergency", sub: "Move everything to safety" },
       { id: "security", icon: Lock, title: "Security", sub: "Password, emergency PIN, auto-lock, recovery phrase" },
-      { id: "activity", icon: History, title: "Activity", sub: "What you've done in this wallet" },
+      { id: "activity", icon: History, title: "Activity", sub: "Transfers and what you've done in this wallet" },
+      { id: "sites", icon: Globe, title: "Connected sites", sub: p.state.connected.length ? `${p.state.connected.length} connected` : "None yet" },
       { id: "token", icon: Timer, title: "Demo token", sub: "Switch to a token with minute-level delays" },
     ];
     return (
@@ -56,7 +59,8 @@ export function MoreTab(p: { data: Protection | undefined; me: Address; tx: Tx; 
       {page === "protection" && <ProtectionSettings {...p} />}
       {page === "emergency" && <Emergency {...p} />}
       {page === "security" && <Security {...p} />}
-      {page === "activity" && <ActivityList />}
+      {page === "activity" && <ActivityList me={p.me} />}
+      {page === "sites" && <Sites state={p.state} refresh={p.refresh} />}
       {page === "token" && <TokenSettings />}
     </>
   );
@@ -181,6 +185,7 @@ function Security({ data, state, refresh }: { data: Protection | undefined; stat
   const [np, setNp] = useState("");
   const [duress, setDuress] = useState("");
   const [phrase, setPhrase] = useState<string>();
+  const [key, setKey] = useState<string>();
   const [msg, setMsg] = useState<{ tone: "success" | "danger"; text: string }>();
   const [wipe, setWipe] = useState(false);
   const run = async (fn: () => Promise<void>, ok?: string) => {
@@ -230,6 +235,16 @@ function Security({ data, state, refresh }: { data: Protection | undefined; stat
       </Card>
 
       <Card className="space-y-3">
+        <h3 className="flex items-center gap-2 font-extrabold"><KeyRound className="size-5" aria-hidden />Private key of this account</h3>
+        <Notice tone="danger" title="Never share this.">Anyone with this key controls this account's money, and protection can't stop them from using it. Only the selected account is shown.</Notice>
+        {key ? (
+          <><p className="select-all break-all rounded-2xl bg-muted p-3 font-mono text-xs" data-testid="privkey">{key}</p><Button variant="ghost" onClick={() => setKey(undefined)}>Hide</Button></>
+        ) : (
+          <Button variant="secondary" disabled={!pw} onClick={() => run(async () => { setKey(await call<string>({ t: "exportKey", password: pw })); })}>Show private key (uses password above)</Button>
+        )}
+      </Card>
+
+      <Card className="space-y-3">
         <h3 className="flex items-center gap-2 font-extrabold text-danger"><LogOut className="size-5" aria-hidden />Remove wallet from this device</h3>
         {!wipe ? <Button variant="secondary" onClick={() => setWipe(true)}>Remove…</Button> : (
           <>
@@ -244,20 +259,31 @@ function Security({ data, state, refresh }: { data: Protection | undefined; stat
 
 /* ───────── activity ───────── */
 
-function ActivityList() {
-  const [items, setItems] = useState<Activity[]>();
-  useEffect(() => { chrome.storage.local.get("activity").then((r) => setItems((r.activity as Activity[]) ?? [])); }, []);
+function ActivityList({ me }: { me: Address }) {
+  const { items, loading } = useActivity(me);
   return (
     <>
       <h2 className="text-lg font-extrabold">Activity</h2>
-      {items?.length === 0 && <p className="text-sm text-muted-foreground">Nothing yet. Things you do in this wallet will show up here.</p>}
+      <p className="text-sm text-muted-foreground">Transfers of pUSDC and USDC over roughly the last day, plus what you've done in this wallet.</p>
+      {loading && !items && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {items?.length === 0 && <p className="text-sm text-muted-foreground">Nothing yet. Transfers and things you do in this wallet will show up here.</p>}
+      {!!items?.length && <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">{items.map((i) => <ActivityRow key={`${i.hash}${i.dir}${i.amount}`} item={i} />)}</ul>}
+    </>
+  );
+}
+
+function Sites({ state, refresh }: { state: WalletState; refresh: () => void }) {
+  return (
+    <>
+      <h2 className="text-lg font-extrabold">Connected sites</h2>
+      <p className="text-sm text-muted-foreground">These sites can see your account's address and balances, and can ask you to approve payments. They can never move money by themselves.</p>
+      {state.connected.length === 0 && <p className="text-sm text-muted-foreground">No sites are connected.</p>}
       <ul className="space-y-2">
-        {items?.map((a) => (
-          <li key={a.hash}>
-            <a href={`${EXPLORER}/tx/${a.hash}`} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card p-3 text-sm hover:bg-muted">
-              <span><span className="block font-semibold">{a.title}</span><span className="text-xs text-muted-foreground">{new Date(a.at * 1000).toLocaleString()}</span></span>
-              <ExternalLink className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            </a>
+        {state.connected.map((o) => (
+          <li key={o} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+            <Globe className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 flex-1 break-all text-sm font-medium" data-testid="site">{o}</span>
+            <Button variant="secondary" className="min-h-9 px-3 text-xs" aria-label={`Disconnect ${o}`} onClick={async () => { await call({ t: "disconnectSite", origin: o }); refresh(); }}>Disconnect</Button>
           </li>
         ))}
       </ul>
