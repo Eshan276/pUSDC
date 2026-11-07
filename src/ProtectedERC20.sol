@@ -603,7 +603,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
         if (!_isActiveNow(p)) return type(uint256).max;
         uint256 limit = _effectiveParam(p, Param.DailyLimit);
         SpendWindow storage s = _spend[account];
-        uint256 spent = block.timestamp >= uint256(s.start) + limitPeriod() ? 0 : s.spent;
+        uint256 spent = block.timestamp >= uint256(s.start) + LIMIT_PERIOD ? 0 : s.spent;
         return limit > spent ? limit - spent : 0;
     }
 
@@ -669,7 +669,7 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
 
     function _consumeDailyLimit(address account, uint256 value) private {
         SpendWindow storage s = _spend[account];
-        if (block.timestamp >= uint256(s.start) + limitPeriod()) {
+        if (block.timestamp >= uint256(s.start) + LIMIT_PERIOD) {
             s.start = uint64(block.timestamp);
             s.spent = 0;
         }
@@ -761,20 +761,9 @@ abstract contract ProtectedERC20 is ERC20Permit, ReentrancyGuard {
 
     function _checkParam(Param param, uint256 value) private view {
         if (param == Param.DailyLimit) return;
-        (uint64 lo, uint64 hi) = paramBounds(param);
+        (uint64 lo, uint64 hi) = param == Param.HoldWindow
+            ? (MIN_HOLD_WINDOW, MAX_HOLD_WINDOW)
+            : param == Param.OffDelay ? (MIN_OFF_DELAY, MAX_OFF_DELAY) : (MIN_LOCK_DURATION, MAX_LOCK_DURATION);
         if (value < lo || value > hi) revert InvalidParam(param, value);
-    }
-
-    /// @notice Allowed range (seconds) for a time-based parameter. Fixed constants here; only the demo variant
-    ///         under `src/demo/` overrides this, and it is never meant for real funds.
-    function paramBounds(Param param) public view virtual returns (uint64 lo, uint64 hi) {
-        if (param == Param.HoldWindow) return (MIN_HOLD_WINDOW, MAX_HOLD_WINDOW);
-        if (param == Param.OffDelay) return (MIN_OFF_DELAY, MAX_OFF_DELAY);
-        return (MIN_LOCK_DURATION, MAX_LOCK_DURATION);
-    }
-
-    /// @notice Length of the daily-limit window in seconds (`LIMIT_PERIOD` unless overridden by the demo variant).
-    function limitPeriod() public view virtual returns (uint64) {
-        return LIMIT_PERIOD;
     }
 }

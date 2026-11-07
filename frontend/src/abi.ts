@@ -552,19 +552,6 @@ export const pusdcAbi = [
   },
   {
     "type": "function",
-    "name": "limitPeriod",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "lockOf",
     "inputs": [
       {
@@ -615,30 +602,6 @@ export const pusdcAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "paramBounds",
-    "inputs": [
-      {
-        "name": "param",
-        "type": "uint8",
-        "internalType": "enum ProtectedERC20.Param"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "lo",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "hi",
-        "type": "uint64",
-        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
