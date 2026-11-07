@@ -3,17 +3,20 @@ import type { Address } from "viem";
 import { useWatchAsset } from "wagmi";
 import { ArrowRight, Clock, Droplets, FastForward, Lock, PlusCircle, RefreshCw, ShieldAlert, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
 import { pusdcAbi, usdcAbi } from "../abi";
-import { DECIMALS, IS_TESTNET, PUSDC, USDC } from "../config";
+import { DECIMALS, IS_TESTNET, PUSDC, SCHEDULER, USDC } from "../config";
 import { fmtAmount, fmtCountdown, fmtDate, fmtDuration, shortAddr, toUnits } from "../lib/format";
 import { knownBackups, useProtection, type ProtectionData } from "../lib/useProtection";
 import { useTx } from "../lib/useTx";
 import { Button, Card, Notice, Progress, Skeleton, useNow } from "./ui";
 import { SendPanel, WrapPanel } from "./Panels";
+import { SwapPanel } from "./Swap";
 import { ProtectionPanel } from "./Protection";
 import { GuardianPanel } from "./Guardian";
 
+const SWAP_ENABLED = SCHEDULER !== "0x0000000000000000000000000000000000000000";
 const TABS = [
   { id: "send", label: "Send" },
+  ...(SWAP_ENABLED ? [{ id: "swap", label: "Swap" } as const] : []),
   { id: "wrap", label: "Add & withdraw" },
   { id: "protection", label: "Protection" },
   { id: "backup", label: "I'm a backup" },
@@ -61,6 +64,7 @@ export function Dashboard({ address }: { address: Address }) {
       <Tabs tab={tab} setTab={setTab} />
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "send" && <SendPanel d={data} address={address} />}
+        {tab === "swap" && <SwapPanel d={data} address={address} />}
         {tab === "wrap" && <WrapPanel d={data} />}
         {tab === "protection" && <ProtectionPanel d={data} address={address} />}
         {tab === "backup" && <GuardianPanel me={address} />}
@@ -79,7 +83,7 @@ function Tabs({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
     refs.current[next]?.focus();
   };
   return (
-    <div role="tablist" aria-label="Actions" className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 sm:flex">
+    <div role="tablist" aria-label="Actions" className={`grid gap-1 rounded-2xl bg-muted p-1 sm:flex ${TABS.length > 4 ? "grid-cols-3" : "grid-cols-2"}`}>
       {TABS.map((t, i) => (
         <button
           key={t.id}

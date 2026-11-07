@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useConfig, useConnection } from "wagmi";
 import { getPublicClient, simulateContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Abi, Address } from "viem";
+import type { Abi, Address, TransactionReceipt } from "viem";
 import { friendlyError } from "./errors";
 import { useToast } from "../components/toast";
 import { EXPLORER } from "../config";
@@ -22,8 +22,9 @@ export function useTx() {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
 
-  async function run(key: string, call: Call, success: string): Promise<boolean> {
-    if (!address) return false;
+  /** Resolves to the receipt on success, or null (failed or cancelled; the user has already been told why). */
+  async function run(key: string, call: Call, success: string): Promise<TransactionReceipt | null> {
+    if (!address) return null;
     setBusy(key);
     try {
       const { request } = await simulateContract(config, { ...call, account: address } as never);
@@ -33,11 +34,11 @@ export function useTx() {
       const receipt = await waitForTransactionReceipt(config, { hash });
       if (receipt.status !== "success") throw new Error("The network rejected this transaction.");
       toast.show({ kind: "success", title: success, href: `${EXPLORER}/tx/${hash}` });
-      return true;
+      return receipt;
     } catch (e) {
       const msg = friendlyError(e);
       if (msg) toast.show({ kind: "error", title: "That didn't go through", body: msg });
-      return false;
+      return null;
     } finally {
       setBusy(null);
       await qc.invalidateQueries();

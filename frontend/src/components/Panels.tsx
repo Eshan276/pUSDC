@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { formatUnits, getAddress, type Address } from "viem";
 import { ArrowDownToLine, ArrowUpFromLine, CalendarClock, CheckCircle2, ExternalLink, Hourglass, Inbox, Send, Zap } from "lucide-react";
-import { pusdcAbi, usdcAbi } from "../abi";
-import { DECIMALS, EXPLORER, PUSDC, USDC } from "../config";
+import { pusdcAbi, schedulerAbi, usdcAbi } from "../abi";
+import { useReadContracts } from "wagmi";
+import { DECIMALS, EXPLORER, POOL_KEY, PUSDC, SCHEDULER, USDC } from "../config";
 import { addressProblem, fmtAmount, fmtCountdown, fmtDate, fmtDuration, parseAmount, shortAddr } from "../lib/format";
 import type { PendingTransfer, ProtectionData } from "../lib/useProtection";
 import { useTx } from "../lib/useTx";
@@ -191,9 +192,20 @@ export function WrapPanel({ d }: { d: ProtectionData }) {
 }
 
 /** Scheduled (queued) transfers with countdowns. Owner and backup can cancel; anyone can complete a ready one. */
-export function PendingList({ title, transfers, loading, role, fastLane }: { title: string; transfers: PendingTransfer[]; loading?: boolean; role: "owner" | "backup" | "watcher"; fastLane?: boolean }) {
+export function PendingList({ title, transfers, loading, role, fastLane, emptyText }: { title: string; transfers: PendingTransfer[]; loading?: boolean; role: "owner" | "backup" | "watcher"; fastLane?: boolean; emptyText?: string }) {
   const now = useNow();
   const { run, busy } = useTx();
+  // Swap terms for transfers headed to ScheduledSwap, so owner and backup can review them during the hold.
+  const swapIds = transfers.filter((t) => t.to.toLowerCase() === SCHEDULER.toLowerCase()).map((t) => t.id);
+  const orders = useReadContracts({
+    allowFailure: false,
+    query: { enabled: swapIds.length > 0, refetchInterval: 5000 },
+    contracts: swapIds.map((id) => ({ address: SCHEDULER, abi: schedulerAbi, functionName: "orderOf", args: [id] }) as const),
+  });
+  const orderOf = (id: bigint) => {
+    const i = swapIds.indexOf(id);
+    return i >= 0 ? (orders.data?.[i] as { key: { currency0: string; currency1: string; fee: number; hooks: string }; minOut: bigint; status: number } | undefined) : undefined;
+  };
   return (
     <Card className="space-y-4">
       <h2 className="text-lg font-bold">{title}</h2>
@@ -203,7 +215,7 @@ export function PendingList({ title, transfers, loading, role, fastLane }: { tit
         <div className="flex flex-col items-center gap-2 py-6 text-center">
           <Inbox className="size-8 text-muted-foreground" aria-hidden />
           <p className="text-sm font-semibold">Nothing scheduled</p>
-          <p className="text-sm text-muted-foreground">Transfers above the daily limit wait here until they're ready.</p>
+          <p className="text-sm text-muted-foreground">{emptyText ?? "Transfers above the daily limit wait here until they're ready."}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -212,13 +224,29 @@ export function PendingList({ title, transfers, loading, role, fastLane }: { tit
             const left = t.executableAt + 5 - now;
             const ready = left <= 0;
             const unwrap = t.to.toLowerCase() === PUSDC.toLowerCase();
+            const isSwap = t.to.toLowerCase() === SCHEDULER.toLowerCase();
+            const order = isSwap ? orderOf(t.id) : undefined;
+            const registered = order?.status === 1;
+            const usualPool =
+              registered &&
+              order!.key.currency0.toLowerCase() === POOL_KEY.currency0.toLowerCase() &&
+              order!.key.currency1.toLowerCase() === POOL_KEY.currency1.toLowerCase() &&
+              order!.key.fee === POOL_KEY.fee;
             return (
               <li key={String(t.id)} className="space-y-3 rounded-2xl border border-border p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-bold tabular">{fmtAmount(t.amount)} pUSDC</p>
                     <p className="truncate text-sm text-muted-foreground">
-                      {unwrap ? "Withdraw to USDC" : <>to <span className="font-mono">{shortAddr(t.to)}</span></>}
+                      {isSwap ? (
+                        registered ? `Swap to USDC on Uniswap v4, at least ${fmtAmount(order!.minOut)} USDC` : "Swap (terms not attached yet)"
+                      ) : unwrap ? (
+                        "Withdraw to USDC"
+                      ) : (
+                        <>
+                          to <span className="font-mono">{shortAddr(t.to)}</span>
+                        </>
+                      )}
                     </p>
                   </div>
                   {ready ? (
@@ -235,6 +263,13 @@ export function PendingList({ title, transfers, loading, role, fastLane }: { tit
                     {fastLane && role === "owner" ? ", or sooner if your backup approves it" : ""}
                   </p>
                 )}
+                {isSwap && order && (!registered || !usualPool) && role !== "owner" && (
+                  <p className="rounded-xl bg-warning-soft p-3 text-xs text-warning-foreground">
+                    {!registered
+                      ? "No swap terms attached. If it goes through, the pUSDC can only be refunded to the owner."
+                      : "This uses an unusual pool. If the owner didn't set this up, stop it."}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {!ready && fastLane && role === "backup" && (
                     <Button loading={busy === `ap${t.id}`} onClick={() => run(`ap${t.id}`, { ...p, functionName: "approveTransfer", args: [t.id] }, "Approved and sent")}>
@@ -242,8 +277,15 @@ export function PendingList({ title, transfers, loading, role, fastLane }: { tit
                     </Button>
                   )}
                   {ready && (
-                    <Button loading={busy === `ex${t.id}`} onClick={() => run(`ex${t.id}`, { ...p, functionName: "executeTransfer", args: [t.id] }, "Transfer completed")}>
-                      Complete transfer
+                    <Button
+                      loading={busy === `ex${t.id}`}
+                      onClick={() =>
+                        isSwap && registered
+                          ? run(`ex${t.id}`, { address: SCHEDULER, abi: schedulerAbi, functionName: "execute", args: [t.id] }, "Swap done. USDC is in the owner's wallet")
+                          : run(`ex${t.id}`, { ...p, functionName: "executeTransfer", args: [t.id] }, "Transfer completed")
+                      }
+                    >
+                      {isSwap && registered ? "Complete swap" : "Complete transfer"}
                     </Button>
                   )}
                   {role !== "watcher" && (

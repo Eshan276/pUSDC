@@ -9,6 +9,12 @@ export const EXPLORER = "https://sepolia.basescan.org";
 export const PUSDC = ((import.meta.env.VITE_PUSDC as string | undefined) ?? "0x033B36fE536e97d312Ece98750A0302eF31CBBab") as Address;
 export const USDC = ((import.meta.env.VITE_USDC as string | undefined) ?? "0xC75FDBDb1805528aC07A256aeDEe171d1Da509Be") as Address;
 export const DECIMALS = 6;
+
+/** Uniswap v4 scheduled swaps (see src/ScheduledSwap.sol). Zero address = feature hidden until deployed. */
+export const SCHEDULER = ((import.meta.env.VITE_SCHEDULER as string | undefined) ?? "0x0000000000000000000000000000000000000000") as Address;
+const [C0, C1] = PUSDC.toLowerCase() < USDC.toLowerCase() ? [PUSDC, USDC] : [USDC, PUSDC];
+/** The hookless 0.05% pUSDC/USDC v4 pool created by script/DeployScheduledSwap.s.sol. */
+export const POOL_KEY = { currency0: C0, currency1: C1, fee: 500, tickSpacing: 10, hooks: "0x0000000000000000000000000000000000000000" as Address } as const;
 export const IS_TESTNET = true;
 
 export const DAY = 86_400;
