@@ -595,7 +595,7 @@ em.accent {
     background-color 0.4s;
 }
 .tile:hover {
-  border-color: oklch(0.86 0.145 120 / 0.45);
+  border-color: oklch(0.62 0.15 254 / 0.45);
   background: var(--surface);
 }
 .tile-art {
@@ -826,7 +826,7 @@ em.accent {
   display: grid;
   gap: 28px;
   padding: clamp(24px, 3.5vw, 40px);
-  border: 1px solid oklch(0.86 0.145 120 / 0.4);
+  border: 1px solid oklch(0.62 0.15 254 / 0.4);
   border-radius: var(--radius);
   background: linear-gradient(180deg, var(--surface), var(--bg));
 }
@@ -1739,3 +1739,48 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
   .btn-launch { height: 32px; padding: 0 11px; font-size: 12px; }
 }
 @media (max-width: 350px) { .nav .brand-text { display: none; } }
+
+/* ═════════ Whole page in the header's theme: light off-white, black ink, flat, DM Sans + JetBrains Mono ═════════ */
+:root {
+  --bg: #f3f3f4;
+  --bg-deep: #ebebed;
+  --surface: #ffffff;
+  --fg: #0b0b0d;
+  --muted: #55555c;
+  --faint: #8b8b93;
+  --line: rgb(0 0 0 / 0.14);
+  --line-soft: rgb(0 0 0 / 0.08);
+  --accent-text: #1f5fb0;
+  --accent-deep: oklch(0.32 0.1 258);
+  --accent-deep-ink: #cfe0fb;
+  --cream: #ffffff;
+  --cream-ink: #0b0b0d;
+  --cream-muted: #55555c;
+  --cream-line: rgb(0 0 0 / 0.14);
+  --amber: oklch(0.62 0.15 60);
+  --amber-soft: oklch(0.95 0.05 85);
+  --danger: oklch(0.56 0.2 27);
+}
+body { background: var(--bg); color: var(--fg); }
+
+/* Typography: same roles as the header. DM Sans for headlines and copy; JetBrains Mono for UI text. */
+.btn, .tag, .copy, .addr-val, .label, .col-h, .seg span, .fineprint, .steps .n, .legal-h, .legal-meta, .footer .squares.sm a, .val, .tile-sub, .play-label, .film-cap {
+  font-family: var(--mono);
+}
+.btn { text-transform: none; letter-spacing: -0.01em; font-size: 14px; font-weight: 500; border-radius: 3px; }
+.btn-accent { background: #000; color: #fff; }
+.btn-accent:hover { background: #26262b; filter: none; }
+.btn-dark { background: #000; color: #fff; }
+.btn-dark:hover { background: #26262b; }
+.btn:active { transform: scale(0.97); }
+
+/* Components that assumed a dark page */
+.tile { background: #fff; border-color: var(--line); }
+.tile:hover { background: #fff; border-color: oklch(0.62 0.15 254 / 0.55); }
+.s4 { background: #0b0b0d; color: #fff; border-color: transparent; }
+.sim { border: 1px solid var(--line); background: #fff; }
+.seg input:checked + span { background: var(--fg); color: #fff; }
+.copy { background: transparent; }
+.footer { border-top: 1px solid var(--line); }
+.tile-sub { font-family: var(--sans); }
+@media (max-width: 640px) { .footer .squares.sm a { font-size: 13px; overflow-wrap: anywhere; } }
