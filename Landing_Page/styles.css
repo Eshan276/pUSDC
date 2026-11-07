@@ -1694,3 +1694,8 @@ html:not(.js) .intro-title, html:not(.js) .intro-sub, html:not(.js) .intro-cta {
   .strip-track:nth-child(2) { display: none; }
   .strip-marquee { animation: none !important; }
 }
+
+/* ───── Hero content sits lower: clears the taller header and gives the artwork room ───── */
+.hero-inner { top: calc(12.8svh + 30px); }
+.ascii { top: calc(9.3svh + 62px); }
+@media (max-width: 900px) { .hero-inner { top: 86px; } .ascii { top: auto; } }
