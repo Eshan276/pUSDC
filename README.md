@@ -143,6 +143,18 @@ export MAINNET_RPC_URL=<your mainnet RPC>   # needed for the fork demo test
 forge test -vv
 ```
 
+The local token, wrapper and delegated-account suites do not need an RPC:
+
+```sh
+forge test --match-contract '^(ProtectedERC20Test|ProtectedWrapperTest|DelegatedAccountTest)$' -vv
+```
+
+Validated with Foundry 1.7.1: 89 tests pass, including nine delegated-account cases and 256 batch-spend fuzz runs.
+`DelegatedAccount.t.sol` uses signed Foundry delegations and Prague execution to check the existing code-bearing
+account policy, batch rollback, allowance rollback, explicit scheduling, and replacement/revocation of delegation.
+It keeps the default Solidity 0.8.28/Cancun build and switches the test EVM with `vm.setEvmVersion`.
+These are staged Foundry delegations, not mined type-4 transactions; the fork demos are outside this command.
+
 ## Try the demo in a terminal
 
 This runs the whole story on a local mainnet fork, with real USDC and the real Uniswap V2. Nothing touches the
